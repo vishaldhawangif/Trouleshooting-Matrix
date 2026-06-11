@@ -5,8 +5,9 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1"/>
   <title>CRE Troubleshoot Matrix — FGF Brands</title>
 </head>
-<body style="margin:0;background:#f0f4f8">
+<body style="margin:0;background:#cfd9c8">
   <div id="root"></div>
+  <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
   <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
@@ -256,15 +257,15 @@ const CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --bg:#f0f4f8;--bg-card:#ffffff;--bg-panel:#ffffff;--bg-deep:#f8fafc;
-  --border:#e2e8f0;--border-mid:#cbd5e1;--border-hi:#94a3b8;
-  --t1:#1e293b;--t2:#334155;--t3:#64748b;--t4:#94a3b8;--t5:#e2e8f0;
-  --acc:#f59e0b;--acc-d:#d97706;--grn:#16a34a;--red:#dc2626;--blu:#2563eb;--pur:#7c3aed;--ora:#ea580c;
-  --fgf-red:#c8102e;--fgf-dark:#0a1628;
+  --bg:#cfd9c8;--bg-card:#ffffff;--bg-panel:#ffffff;--bg-deep:#e8f0e4;
+  --border:#bccfb6;--border-mid:#a8c0a2;--border-hi:#7a9e74;
+  --t1:#1a2e18;--t2:#2d4828;--t3:#567050;--t4:#8aaa84;--t5:#c0d4bb;
+  --acc:#1a7a6a;--acc-d:#136058;--grn:#1a8a4a;--red:#c8102e;--blu:#2563eb;--pur:#7c3aed;--ora:#ea580c;
+  --fgf-green:#2d7a2d;--fgf-teal:#1a7a6a;--fgf-dark:#1a3a1a;
   --card-rad:10px;--panel-rad:14px;
-  --shadow-sm:0 1px 3px rgba(0,0,0,.06),0 1px 8px rgba(0,0,0,.04);
-  --shadow-md:0 4px 16px rgba(0,0,0,.08),0 2px 6px rgba(0,0,0,.04);
-  --shadow-lg:0 10px 40px rgba(0,0,0,.1),0 4px 12px rgba(0,0,0,.06);
+  --shadow-sm:0 1px 3px rgba(0,0,0,.07),0 1px 8px rgba(0,0,0,.05);
+  --shadow-md:0 4px 16px rgba(0,0,0,.09),0 2px 6px rgba(0,0,0,.05);
+  --shadow-lg:0 10px 40px rgba(0,0,0,.12),0 4px 12px rgba(0,0,0,.07);
 }
 html,body{height:100%}
 body{background:var(--bg);color:var(--t1);font-family:'Inter',system-ui,sans-serif;-webkit-font-smoothing:antialiased;letter-spacing:.01em}
@@ -296,7 +297,7 @@ body{background:var(--bg);color:var(--t1);font-family:'Inter',system-ui,sans-ser
 .card.sev-advisory:hover{box-shadow:0 8px 28px rgba(37,99,235,.10),0 2px 8px rgba(0,0,0,.06);}
 .card-body{padding:14px 16px;flex:1;}
 .card-footer{padding:10px 16px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:#f8fafc;}
-.card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px;}
+.card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(320px,100%),1fr));gap:12px;}
 
 .step{border-radius:8px;transition:background 120ms ease;cursor:pointer;}
 .step:hover:not(.step--locked){background:rgba(0,0,0,.025);}
@@ -306,18 +307,18 @@ body{background:var(--bg);color:var(--t1);font-family:'Inter',system-ui,sans-ser
 .btn{cursor:pointer;border:none;border-radius:8px;font-family:inherit;font-weight:700;font-size:13px;padding:9px 16px;transition:all 150ms ease;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;letter-spacing:.01em;}
 .btn:hover{filter:brightness(1.06)}.btn:active{transform:scale(.97);}
 .btn:focus-visible{outline:2px solid var(--acc);outline-offset:2px;}
-.btn--ghost{background:var(--bg-card);border:1px solid var(--border-mid);color:var(--t2);}
+.btn--ghost{background:#ffffff;border:1px solid var(--border-mid);color:var(--t2);}
 .btn--ghost:hover{background:var(--bg-deep);border-color:var(--border-hi);color:var(--t1);}
-.btn--green{background:#16a34a;color:#fff;}
+.btn--green{background:#1a8a4a;color:#fff;}
 .btn--amber{background:linear-gradient(135deg,#f59e0b,#d97706);color:#000;box-shadow:0 4px 14px rgba(245,158,11,.28);}
 .btn--amber:hover{box-shadow:0 6px 20px rgba(245,158,11,.36);}
-.btn--red{background:#fef2f2;border:1px solid #fecaca;color:#dc2626;}
-.btn--blue{background:#eff6ff;border:1px solid #bfdbfe;color:#2563eb;}
-.btn--fgf{background:linear-gradient(135deg,#c8102e,#a00d24);color:#fff;box-shadow:0 4px 14px rgba(200,16,46,.28);}
-.btn--fgf:hover{box-shadow:0 6px 20px rgba(200,16,46,.38);}
+.btn--red{background:#fef2f2;border:1px solid #fecaca;color:#c8102e;}
+.btn--blue{background:#e8f5f3;border:1px solid #a0d0c8;color:#1a7a6a;}
+.btn--fgf{background:linear-gradient(135deg,#1a7a6a,#136058);color:#fff;box-shadow:0 4px 14px rgba(26,122,106,.3);}
+.btn--fgf:hover{box-shadow:0 6px 20px rgba(26,122,106,.4);}
 .btn--full{width:100%;justify-content:center;}
-.btn--cta{background:linear-gradient(135deg,#f59e0b,#f97316);color:#000;font-size:12px;padding:7px 14px;border-radius:7px;font-weight:700;box-shadow:0 3px 12px rgba(245,158,11,.22);}
-.btn--cta:hover{box-shadow:0 6px 20px rgba(245,158,11,.36);}
+.btn--cta{background:linear-gradient(135deg,#1a7a6a,#136058);color:#fff;font-size:12px;padding:7px 14px;border-radius:7px;font-weight:700;box-shadow:0 3px 12px rgba(26,122,106,.25);}
+.btn--cta:hover{box-shadow:0 6px 20px rgba(26,122,106,.38);}
 
 input,textarea{font-family:inherit;outline:none;}
 .input{width:100%;background:#ffffff;border:1.5px solid var(--border-mid);border-radius:8px;padding:10px 12px;color:var(--t1);font-size:13px;transition:border-color 150ms,background 150ms,box-shadow 150ms;}
@@ -338,16 +339,16 @@ input[type=date]::-webkit-calendar-picker-indicator:hover{opacity:1;}
 
 .guide-iframe{width:100%;aspect-ratio:16/9;border:none;border-radius:10px;background:#000;}
 
-.app-header{background:linear-gradient(180deg,#0a1628 0%,#0e1e38 100%);border-bottom:1px solid rgba(255,255,255,.08);position:sticky;top:0;z-index:100;backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);box-shadow:0 2px 16px rgba(0,0,0,.2);}
+.app-header{background:#ffffff;border-bottom:2px solid #c8d9c2;position:sticky;top:0;z-index:100;box-shadow:0 2px 10px rgba(0,0,0,.07);}
 
 .search-wrap{position:relative;}
 .search-icon{position:absolute;left:13px;top:50%;transform:translateY(-50%);color:var(--t4);pointer-events:none;}
 .search-clear{position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--t3);cursor:pointer;font-size:18px;line-height:1;padding:2px;border-radius:3px;}
 .search-clear:hover{color:var(--t1);}
 
-.nav-tab{cursor:pointer;padding:9px 16px;font-size:13px;font-weight:600;border-radius:8px;transition:all 150ms ease;border:none;background:transparent;color:rgba(255,255,255,.55);letter-spacing:.02em;}
-.nav-tab:hover{color:rgba(255,255,255,.9);background:rgba(255,255,255,.08);}
-.nav-tab.active{color:#ffffff;background:rgba(255,255,255,.14);box-shadow:inset 0 0 0 1px rgba(255,255,255,.12);}
+.nav-tab{cursor:pointer;padding:9px 16px;font-size:13px;font-weight:600;border-radius:8px;transition:all 150ms ease;border:none;background:transparent;color:var(--t3);letter-spacing:.02em;}
+.nav-tab:hover{color:var(--acc);background:rgba(26,122,106,.08);}
+.nav-tab.active{color:var(--acc);background:rgba(26,122,106,.12);box-shadow:inset 0 0 0 1px rgba(26,122,106,.2);}
 
 .kpi{background:#ffffff;border:1px solid var(--border);border-radius:var(--card-rad);padding:14px 16px;box-shadow:var(--shadow-sm);}
 
@@ -357,6 +358,21 @@ input[type=date]::-webkit-calendar-picker-indicator:hover{opacity:1;}
 .panel-col-left{flex:1;min-width:0;overflow-y:auto;padding:18px 20px;border-right:1px solid var(--border);}
 .panel-col-right{width:280px;flex-shrink:0;overflow-y:auto;padding:18px 20px;background:#fafbfd;}
 @media(max-width:699px){.panel-col-left,.panel-col-right{padding:14px 16px;}.panel-col-right{width:100%;border-top:1px solid var(--border);}}
+
+/* ── MOBILE ── */
+@media(max-width:599px){
+  .card-grid{grid-template-columns:1fr!important;}
+  .nav-tab{padding:8px 10px;font-size:11px;letter-spacing:0;}
+  .btn--cta{font-size:11px;padding:7px 10px;}
+  .kpi{padding:10px 12px;}
+  .panel-col-right{padding:12px 14px;}
+  .panel-col-left{padding:12px 14px;}
+}
+@media(max-width:420px){
+  .nav-tab{padding:7px 7px;font-size:10px;}
+  .btn{font-size:12px;padding:8px 12px;}
+  .input{font-size:13px;}
+}
 `;
 
 // ─── STORAGE LAYER ────────────────────────────────────────────────────────────
@@ -554,17 +570,11 @@ function VideoGuideSection({issueId, guideUrl, onSave, onRemove, adminUnlocked})
           </div>
         </div>
       )}
-      {!guideUrl&&!editing&&(
-        adminUnlocked?(
-          <button className="btn btn--ghost" onClick={()=>setEditing(true)}
-            style={{fontSize:12,width:"100%",justifyContent:"center",borderStyle:"dashed",borderColor:"var(--border-mid)"}}>
-            + Add Video Guide
-          </button>
-        ):(
-          <div style={{fontSize:12,color:"var(--t4)",textAlign:"center",padding:"10px",border:"1px dashed var(--border-mid)",borderRadius:8}}>
-            🔐 Unlock Admin to add a video guide
-          </div>
-        )
+      {!guideUrl&&!editing&&adminUnlocked&&(
+        <button className="btn btn--ghost" onClick={()=>setEditing(true)}
+          style={{fontSize:12,width:"100%",justifyContent:"center",borderStyle:"dashed",borderColor:"var(--border-mid)"}}>
+          + Add Video Guide
+        </button>
       )}
     </div>
   );
@@ -625,16 +635,39 @@ function DetailPanel({issue, elapsed, steps, isClosed, closedInfo, guideUrl, onT
     const skuVal=sku.trim()?sku.trim().toUpperCase():"N/A";
     onSubmit({outcome, operator:opName.trim(), sku:skuVal, notes:notes.trim(), timeToFix:fmtT(elapsed)});
     if(outcome==="escalated"&&escalationEmail&&escalationEmail.trim()){
-      const subj=encodeURIComponent(`[CRE ESCALATION] ${issue.symptom}`);
-      const body=encodeURIComponent(
-        `ISSUE ESCALATED — CRE Plant\n${"─".repeat(48)}\n\n`+
-        `Issue:     ${issue.symptom}\nLine:      ${issue.line}\nTag:       ${issue.tag}   |   Severity: ${issue.severity.toUpperCase()}\n`+
-        `SKU:       ${skuVal}\nOperator:  ${opName.trim()}\nTime:      ${fmtT(elapsed)}\nNotes:     ${notes.trim()||"—"}\n\n`+
-        `Root Cause:\n${issue.cause}\n\n`+
-        (issue.escalateNote?`Escalation Note:\n${issue.escalateNote}\n\n`:"")+
-        `Logged: ${new Date().toLocaleString()}\nApp: ${APP_NAME} v${APP_VER}`
-      );
-      try{ window.open(`mailto:${encodeURIComponent(escalationEmail)}?subject=${subj}&body=${body}`,"_self"); }catch{}
+      const ejsKey=store.get(EJS_KEY_KEY);
+      const ejsService=store.get(EJS_SERVICE_KEY);
+      const ejsTemplate=store.get(EJS_TEMPLATE_KEY);
+      const templateParams={
+        to_email:escalationEmail,
+        issue_title:issue.symptom,
+        line:issue.line,
+        tag:issue.tag,
+        severity:issue.severity.toUpperCase(),
+        operator_name:opName.trim(),
+        sku:skuVal,
+        time_to_fix:fmtT(elapsed),
+        notes:notes.trim()||"—",
+        escalation_note:issue.escalateNote||"—",
+        timestamp:new Date().toLocaleString(),
+        plant:PLANT_NAME,
+      };
+      if(ejsKey&&ejsService&&ejsTemplate){
+        try{
+          window.emailjs.init(ejsKey);
+          window.emailjs.send(ejsService,ejsTemplate,templateParams);
+        }catch(e){
+          // fallback to mailto
+          const subj=encodeURIComponent(`[CRE ESCALATION] ${issue.symptom}`);
+          const body=encodeURIComponent(`ISSUE ESCALATED — ${PLANT_NAME}\n\nIssue: ${issue.symptom}\nLine: ${issue.line} | Tag: ${issue.tag} | Severity: ${issue.severity.toUpperCase()}\nSKU: ${skuVal}\nOperator: ${opName.trim()}\nTime: ${fmtT(elapsed)}\nNotes: ${notes.trim()||"—"}\n\nEscalation Note: ${issue.escalateNote||"—"}\n\nLogged: ${new Date().toLocaleString()}`);
+          try{ window.open(`mailto:${encodeURIComponent(escalationEmail)}?subject=${subj}&body=${body}`,"_self"); }catch{}
+        }
+      } else {
+        // No EmailJS configured — use mailto fallback
+        const subj=encodeURIComponent(`[CRE ESCALATION] ${issue.symptom}`);
+        const body=encodeURIComponent(`ISSUE ESCALATED — ${PLANT_NAME}\n\nIssue: ${issue.symptom}\nLine: ${issue.line} | Tag: ${issue.tag} | Severity: ${issue.severity.toUpperCase()}\nSKU: ${skuVal}\nOperator: ${opName.trim()}\nTime: ${fmtT(elapsed)}\nNotes: ${notes.trim()||"—"}\n\nEscalation Note: ${issue.escalateNote||"—"}\n\nLogged: ${new Date().toLocaleString()}`);
+        try{ window.open(`mailto:${encodeURIComponent(escalationEmail)}?subject=${subj}&body=${body}`,"_self"); }catch{}
+      }
     }
   };
 
@@ -678,9 +711,11 @@ function DetailPanel({issue, elapsed, steps, isClosed, closedInfo, guideUrl, onT
                 <p style={{fontSize:13,color:"var(--t2)",lineHeight:1.7,margin:0}}>{issue.cause}</p>
               </div>
               {/* Video */}
+              {(guideUrl||adminUnlocked)&&(
               <div style={{background:"var(--bg-deep)",border:"1px solid var(--border)",borderRadius:10,padding:"12px 14px"}}>
                 <VideoGuideSection issueId={issue.id} guideUrl={guideUrl} onSave={onSaveGuide} onRemove={onRemoveGuide} adminUnlocked={adminUnlocked}/>
               </div>
+              )}
               {/* Steps */}
               <div>
                 <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
@@ -996,11 +1031,14 @@ function AnalyticsTab({records, issues}) {
 }
 
 // ─── ADMIN PANEL ──────────────────────────────────────────────────────────────
-function AdminPanel({issues, saveIssues, escalationEmail, saveEscalation, currentPin, savePin, onResetData}) {
+function AdminPanel({issues, saveIssues, escalationEmail, saveEscalation, currentPin, savePin, onResetData, guides, saveGuide, removeGuide}) {
   const [view,setView]=useState("list"); // list | add | edit | settings
   const [editTarget,setEditTarget]=useState(null);
   const [confirm,setConfirm]=useState(null);
   const [resetConfirm,setResetConfirm]=useState(false);
+  const [videoEdit,setVideoEdit]=useState(null); // issueId being edited
+  const [videoDraft,setVideoDraft]=useState("");
+  const [adminSearch,setAdminSearch]=useState("");
 
   const startEdit = issue => { setEditTarget(issue); setView("edit"); };
   const startAdd  = ()    => { setEditTarget(null);  setView("add");  };
@@ -1029,28 +1067,70 @@ function AdminPanel({issues, saveIssues, escalationEmail, saveEscalation, curren
 
   return (
     <div style={{padding:"16px 20px",maxWidth:900,margin:"0 auto"}}>
-      <div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap",alignItems:"center"}}>
+      <div style={{display:"flex",gap:8,marginBottom:12,flexWrap:"wrap",alignItems:"center"}}>
         <button className="btn btn--amber" onClick={startAdd}>+ Add New Issue</button>
         <button className="btn btn--ghost" onClick={()=>setView("settings")}>⚙ Settings</button>
         <button className="btn btn--red" style={{marginLeft:"auto"}} onClick={()=>setResetConfirm(true)}>🗑 Reset All Data</button>
         <span style={{fontSize:12,color:"var(--t4)"}}>{issues.length} issues</span>
       </div>
+      <div className="search-wrap" style={{marginBottom:14}}>
+        <span className="search-icon" style={{color:"var(--t4)"}}>🔍</span>
+        <input value={adminSearch} onChange={e=>setAdminSearch(e.target.value)}
+          placeholder="Search issues by name, tag, category…"
+          className="input" style={{paddingLeft:36,paddingRight:adminSearch?32:12}}/>
+        {adminSearch&&<button className="search-clear" onClick={()=>setAdminSearch("")}>×</button>}
+      </div>
       <div style={{display:"flex",flexDirection:"column",gap:8}}>
-        {issues.map(issue=>(
-          <div key={issue.id} style={{background:"var(--bg-card)",border:"1px solid var(--border)",borderRadius:10,padding:"12px 16px",display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
-            <div style={{flex:1,minWidth:200}}>
-              <div style={{display:"flex",gap:5,marginBottom:4,flexWrap:"wrap"}}>
-                <SevBadge sev={issue.severity}/><TagBadge tag={issue.tag}/><LineBadge line={issue.line}/>
+        {issues.filter(i=>{ const q=adminSearch.toLowerCase().trim(); return !q||i.symptom.toLowerCase().includes(q)||i.tag.toLowerCase().includes(q)||i.category.toLowerCase().includes(q); }).map(issue=>{
+          const hasGuide=!!(guides&&guides[issue.id]);
+          const isEditingVideo=videoEdit===issue.id;
+          return (
+            <div key={issue.id} style={{background:"var(--bg-card)",border:"1px solid var(--border)",borderRadius:10,overflow:"hidden",boxShadow:"var(--shadow-sm)"}}>
+              {/* Issue row */}
+              <div style={{padding:"12px 16px",display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+                <div style={{flex:1,minWidth:200}}>
+                  <div style={{display:"flex",gap:5,marginBottom:4,flexWrap:"wrap"}}>
+                    <SevBadge sev={issue.severity}/><TagBadge tag={issue.tag}/><LineBadge line={issue.line}/>
+                    {hasGuide&&<span style={{background:"#eff6ff",color:"#2563eb",border:"1px solid #bfdbfe",borderRadius:4,fontSize:10,fontWeight:700,padding:"2px 7px"}}>🎬 Video set</span>}
+                  </div>
+                  <div style={{fontSize:13,fontWeight:700,color:"var(--t1)"}}>{issue.symptom}</div>
+                  <div style={{fontSize:11,color:"var(--t4)",marginTop:2}}>{issue.steps.length} steps · {issue.category}</div>
+                </div>
+                <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                  <button className="btn" style={{padding:"6px 12px",fontSize:12,background:hasGuide?"#eff6ff":"var(--bg-deep)",border:`1px solid ${hasGuide?"#bfdbfe":"var(--border-mid)"}`,color:hasGuide?"#2563eb":"var(--t3)"}}
+                    onClick={()=>{ if(isEditingVideo){setVideoEdit(null);}else{setVideoEdit(issue.id);setVideoDraft(guides?.[issue.id]||"");} }}>
+                    🎬 {hasGuide?"Edit Video":"Add Video"}
+                  </button>
+                  <button className="btn btn--blue" style={{padding:"6px 12px",fontSize:12}} onClick={()=>startEdit(issue)}>✏ Edit</button>
+                  <button className="btn btn--red" style={{padding:"6px 12px",fontSize:12}} onClick={()=>setConfirm(issue.id)}>🗑 Delete</button>
+                </div>
               </div>
-              <div style={{fontSize:13,fontWeight:700,color:"var(--t1)"}}>{issue.symptom}</div>
-              <div style={{fontSize:11,color:"var(--t4)",marginTop:2}}>{issue.steps.length} steps · {issue.category}</div>
+              {/* Inline video URL editor */}
+              {isEditingVideo&&(
+                <div style={{borderTop:"1px solid var(--border)",padding:"12px 16px",background:"var(--bg-deep)"}}>
+                  <div style={{fontSize:11,fontWeight:600,color:"var(--t3)",marginBottom:8}}>🎬 Video Guide URL — paste a YouTube link, SharePoint link, or direct .mp4 URL</div>
+                  <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                    <input value={videoDraft} onChange={e=>setVideoDraft(e.target.value)}
+                      placeholder="https://youtube.com/watch?v=… or SharePoint link"
+                      className="input" style={{flex:"1 1 260px"}}
+                      onKeyDown={e=>{ if(e.key==="Enter"&&videoDraft.trim()){ saveGuide(issue.id,videoDraft.trim()); setVideoEdit(null); } }}/>
+                    <button className="btn btn--amber" disabled={!videoDraft.trim()}
+                      onClick={()=>{ saveGuide(issue.id,videoDraft.trim()); setVideoEdit(null); }}>
+                      💾 Save
+                    </button>
+                    {hasGuide&&(
+                      <button className="btn btn--red" style={{padding:"9px 12px"}}
+                        onClick={()=>{ removeGuide(issue.id); setVideoEdit(null); }}>
+                        Remove
+                      </button>
+                    )}
+                    <button className="btn btn--ghost" onClick={()=>setVideoEdit(null)}>Cancel</button>
+                  </div>
+                </div>
+              )}
             </div>
-            <div style={{display:"flex",gap:6}}>
-              <button className="btn btn--blue" style={{padding:"6px 12px",fontSize:12}} onClick={()=>startEdit(issue)}>✏ Edit</button>
-              <button className="btn btn--red" style={{padding:"6px 12px",fontSize:12}} onClick={()=>setConfirm(issue.id)}>🗑 Delete</button>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
       {confirm&&(
         <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.55)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:300}}>
@@ -1180,6 +1260,10 @@ function IssueForm({initial, onSave, onCancel}) {
   );
 }
 
+const EJS_KEY_KEY      = "cre_ejs_pubkey";
+const EJS_SERVICE_KEY  = "cre_ejs_service";
+const EJS_TEMPLATE_KEY = "cre_ejs_template";
+
 function SettingsForm({escalationEmail, saveEscalation, currentPin, savePin, onBack}) {
   const [email,setEmail]=useState(escalationEmail||"");
   const [pin,setPin]=useState("");
@@ -1187,6 +1271,10 @@ function SettingsForm({escalationEmail, saveEscalation, currentPin, savePin, onB
   const [emailSaved,setEmailSaved]=useState(false);
   const [pinSaved,setPinSaved]=useState(false);
   const [pinErr,setPinErr]=useState("");
+  const [ejsKey,setEjsKey]=useState(()=>store.get(EJS_KEY_KEY)||"");
+  const [ejsService,setEjsService]=useState(()=>store.get(EJS_SERVICE_KEY)||"");
+  const [ejsTemplate,setEjsTemplate]=useState(()=>store.get(EJS_TEMPLATE_KEY)||"");
+  const [ejsSaved,setEjsSaved]=useState(false);
 
   const handleEmailSave = () => { saveEscalation(email.trim()); setEmailSaved(true); setTimeout(()=>setEmailSaved(false),2000); };
   const handlePinSave = () => {
@@ -1195,24 +1283,51 @@ function SettingsForm({escalationEmail, saveEscalation, currentPin, savePin, onB
     savePin(pin); setPinErr(""); setPinSaved(true); setPin(""); setPin2("");
     setTimeout(()=>setPinSaved(false),2000);
   };
+  const handleEjsSave = () => {
+    store.set(EJS_KEY_KEY, ejsKey.trim());
+    store.set(EJS_SERVICE_KEY, ejsService.trim());
+    store.set(EJS_TEMPLATE_KEY, ejsTemplate.trim());
+    setEjsSaved(true); setTimeout(()=>setEjsSaved(false),2000);
+  };
 
   return (
-    <div style={{padding:"16px 20px",maxWidth:500,margin:"0 auto"}}>
+    <div style={{padding:"16px 20px",maxWidth:540,margin:"0 auto"}}>
       <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:20}}>
         <button className="btn btn--ghost" onClick={onBack}>← Back</button>
         <h2 style={{fontSize:16,fontWeight:800}}>Settings</h2>
       </div>
       {/* Escalation email */}
-      <div style={{background:"var(--bg-card)",border:"1px solid var(--border)",borderRadius:12,padding:20,marginBottom:14}}>
-        <div style={{fontSize:12,fontWeight:800,color:"var(--t2)",marginBottom:12}}>📧 Global Escalation Email</div>
+      <div style={{background:"var(--bg-card)",border:"1px solid var(--border)",borderRadius:12,padding:20,marginBottom:14,boxShadow:"var(--shadow-sm)"}}>
+        <div style={{fontSize:12,fontWeight:800,color:"var(--t2)",marginBottom:4}}>📧 Global Escalation Email</div>
+        <div style={{fontSize:11,color:"var(--t4)",marginBottom:12}}>Escalation notifications are sent to this address.</div>
         <input value={email} onChange={e=>setEmail(e.target.value)} placeholder="escalation@fgfbrands.com"
           className="input" style={{marginBottom:10}}/>
         <button className="btn btn--amber" onClick={handleEmailSave}>
           {emailSaved?"✅ Saved!":"Save Email"}
         </button>
       </div>
+      {/* EmailJS auto-send */}
+      <div style={{background:"var(--bg-card)",border:"1px solid var(--border)",borderRadius:12,padding:20,marginBottom:14,boxShadow:"var(--shadow-sm)"}}>
+        <div style={{fontSize:12,fontWeight:800,color:"var(--t2)",marginBottom:4}}>⚡ Auto Email (EmailJS)</div>
+        <div style={{fontSize:11,color:"var(--t4)",marginBottom:12,lineHeight:1.6}}>
+          Connect <a href="https://www.emailjs.com" target="_blank" rel="noopener noreferrer" style={{color:"var(--blu)"}}>EmailJS</a> to auto-send escalation emails without opening the mail app.
+          Free account → Email Services → Add service → Email Templates → Create template with variables: <code style={{background:"var(--bg-deep)",padding:"1px 4px",borderRadius:3,fontSize:10}}>{"{{to_email}} {{issue_title}} {{operator_name}} {{sku}} {{line}} {{tag}} {{severity}} {{time_to_fix}} {{notes}} {{escalation_note}} {{timestamp}}"}</code>
+        </div>
+        <label style={{fontSize:11,color:"var(--t3)",display:"block",marginBottom:4,fontWeight:600}}>Public Key</label>
+        <input value={ejsKey} onChange={e=>setEjsKey(e.target.value)} placeholder="Your EmailJS Public Key"
+          className="input" style={{marginBottom:8}}/>
+        <label style={{fontSize:11,color:"var(--t3)",display:"block",marginBottom:4,fontWeight:600}}>Service ID</label>
+        <input value={ejsService} onChange={e=>setEjsService(e.target.value)} placeholder="service_xxxxxxx"
+          className="input" style={{marginBottom:8}}/>
+        <label style={{fontSize:11,color:"var(--t3)",display:"block",marginBottom:4,fontWeight:600}}>Template ID</label>
+        <input value={ejsTemplate} onChange={e=>setEjsTemplate(e.target.value)} placeholder="template_xxxxxxx"
+          className="input" style={{marginBottom:10}}/>
+        <button className="btn btn--amber" onClick={handleEjsSave}>
+          {ejsSaved?"✅ Saved!":"Save EmailJS Config"}
+        </button>
+      </div>
       {/* Change PIN */}
-      <div style={{background:"var(--bg-card)",border:"1px solid var(--border)",borderRadius:12,padding:20}}>
+      <div style={{background:"var(--bg-card)",border:"1px solid var(--border)",borderRadius:12,padding:20,boxShadow:"var(--shadow-sm)"}}>
         <div style={{fontSize:12,fontWeight:800,color:"var(--t2)",marginBottom:12}}>🔐 Change Admin PIN</div>
         <input type="password" value={pin} onChange={e=>setPin(e.target.value)} placeholder="New PIN"
           className="input" style={{marginBottom:8}}/>
@@ -1328,16 +1443,23 @@ function App() {
         <div style={{maxWidth:1200,margin:"0 auto",padding:"10px 16px",display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
           {/* FGF Logo area */}
           <div style={{display:"flex",alignItems:"center",gap:12}}>
-            {/* FGF Brands logo replica */}
-            <div style={{display:"flex",flexDirection:"column",alignItems:"center",background:"#c8102e",borderRadius:6,padding:"5px 11px 4px",boxShadow:"0 2px 12px rgba(200,16,46,.45)",flexShrink:0}}>
-              <div style={{fontFamily:"'Inter',sans-serif",fontWeight:900,fontSize:15,color:"#fff",letterSpacing:".12em",lineHeight:1}}>FGF</div>
-              <div style={{fontFamily:"'Inter',sans-serif",fontWeight:500,fontSize:7,color:"rgba(255,255,255,.82)",letterSpacing:".22em",marginTop:2,textTransform:"uppercase"}}>BRANDS</div>
+            {/* FGF Wonderbrands-style logo */}
+            <div style={{display:"flex",flexDirection:"column",flexShrink:0}}>
+              <div style={{display:"flex",gap:3,marginBottom:3}}>
+                {["#c8102e","#f59e0b","#22c55e","#3b82f6","#a855f7","#ec4899"].map((c,i)=>(
+                  <div key={i} style={{width:5,height:5,borderRadius:"50%",background:c}}/>
+                ))}
+              </div>
+              <div style={{display:"flex",alignItems:"baseline",gap:5}}>
+                <span style={{fontFamily:"'Inter',sans-serif",fontWeight:900,fontSize:22,color:"#2d7a2d",letterSpacing:"-.02em",lineHeight:1}}>FGF</span>
+                <span style={{fontFamily:"'Inter',sans-serif",fontWeight:600,fontSize:11,color:"#567050",letterSpacing:".01em"}}>Wonderbrands</span>
+              </div>
             </div>
             {/* Divider */}
-            <div style={{width:1,height:28,background:"rgba(255,255,255,.15)",flexShrink:0}}/>
+            <div style={{width:1,height:32,background:"#c8d9c2",flexShrink:0}}/>
             <div>
-              <div style={{fontSize:13,fontWeight:700,color:"#ffffff",lineHeight:1.25,letterSpacing:".01em"}}>CRE Troubleshoot Matrix</div>
-              <div style={{fontSize:10,color:"rgba(255,255,255,.45)",fontWeight:400,marginTop:2}}>{PLANT_NAME} · v{APP_VER}</div>
+              <div style={{fontSize:13,fontWeight:700,color:"var(--t1)",lineHeight:1.25,letterSpacing:".01em"}}>CRE Troubleshoot Matrix</div>
+              <div style={{fontSize:10,color:"var(--t4)",fontWeight:400,marginTop:2}}>{PLANT_NAME} · v{APP_VER}</div>
             </div>
           </div>
 
@@ -1410,7 +1532,8 @@ function App() {
           adminUnlocked
             ? <AdminPanel issues={issues} saveIssues={saveIssues}
                 escalationEmail={escalationEmail} saveEscalation={saveEscalation}
-                currentPin={adminPin} savePin={savePinFn} onResetData={resetData}/>
+                currentPin={adminPin} savePin={savePinFn} onResetData={resetData}
+                guides={guides} saveGuide={saveGuide} removeGuide={removeGuide}/>
             : <PinGate correctPin={adminPin} onUnlock={()=>setAdminUnlocked(true)}/>
         )}
       </main>
