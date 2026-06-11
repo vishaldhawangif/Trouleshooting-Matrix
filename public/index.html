@@ -1,0 +1,1524 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1"/>
+  <title>CRE Troubleshoot Matrix — FGF Brands</title>
+</head>
+<body style="margin:0;background:#07090f">
+  <div id="root"></div>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script type="text/babel" data-presets="react,env">
+const { useState, useEffect, useRef, useMemo, useCallback, memo } = React;
+
+// ─── CONFIG ───────────────────────────────────────────────────────────────────
+const APP_NAME     = "CRE Troubleshoot Matrix";
+const APP_VER      = "1.0";
+const PLANT_NAME   = "Creditstone (CRE)";
+const LOG_KEY      = "cre_issue_log_v1";
+const GUIDES_KEY   = "cre_video_guides_v1";
+const ESC_KEY      = "cre_escalation_v1";
+const ISSUES_KEY   = "cre_issues_v1";
+const PIN_KEY      = "cre_admin_pin_v1";
+const DEFAULT_PIN  = "1234";
+
+const SEV_CFG = {
+  critical: { color:"#ef4444", bg:"rgba(239,68,68,.10)", border:"rgba(239,68,68,.28)", label:"CRITICAL" },
+  warning:  { color:"#f59e0b", bg:"rgba(245,158,11,.10)", border:"rgba(245,158,11,.28)", label:"WARNING"  },
+  advisory: { color:"#3b82f6", bg:"rgba(59,130,246,.10)", border:"rgba(59,130,246,.28)", label:"ADVISORY" },
+};
+
+const LINE_COLORS = {
+  "Line 1":"#f59e0b","Line 2":"#22c55e","Line 3":"#3b82f6",
+  "Line 4":"#a78bfa","Line 5":"#f97316","All Lines":"#64748b",
+};
+
+const TAG_COLORS = {
+  MIXER:"#f97316", OVEN:"#ef4444", DIVIDER:"#f59e0b", MOULDER:"#f97316",
+  PROOFER:"#22c55e", SLICER:"#f59e0b", WRAPPER:"#3b82f6", CONVEYOR:"#64748b",
+  "METAL DETECTOR":"#a78bfa", QUALITY:"#22c55e", SAFETY:"#ef4444", CODER:"#94a3b8",
+};
+
+// ─── DEFAULT ISSUES ──────────────────────────────────────────────────────────
+const DEFAULT_ISSUES = [
+  // ── MIXER ──
+  {
+    id:"m1", line:"All Lines", category:"equipment", severity:"warning", tag:"MIXER",
+    symptom:"Mixer not reaching target speed — dough under-mixed",
+    keywords:["mixer","speed","rpm","under-mixed","dough","slow"],
+    cause:"Drive belt worn or frequency inverter fault. Can also be caused by overloaded mixer bowl.",
+    steps:[
+      "Stop the mixer and lock out / tag out before inspecting.",
+      "Check the mixer bowl — remove any excess dough or foreign material.",
+      "Inspect the drive belt for visible wear, cracks, or slippage.",
+      "Check the inverter display for fault codes — note any active alarms.",
+      "Reset the inverter fault if present (refer to inverter manual for reset procedure).",
+      "Restart the mixer at low speed and verify RPM climbs to target.",
+      "If RPM still does not reach target, contact Maintenance.",
+    ],
+    escalate:true,
+    escalateNote:"If drive belt is visibly damaged or inverter fault repeats, contact Maintenance immediately. Do not run under-mixed dough.",
+  },
+  {
+    id:"m2", line:"All Lines", category:"equipment", severity:"critical", tag:"MIXER",
+    symptom:"Mixer E-stop triggered — will not restart",
+    keywords:["e-stop","estop","emergency stop","mixer","won't start","not starting"],
+    cause:"An emergency stop button is engaged, a safety guard is open, or a safety relay has tripped.",
+    steps:[
+      "Identify which E-stop button is pressed in — check all panels around the mixer.",
+      "Pull out the engaged E-stop button to release it.",
+      "Ensure all safety guards and access doors are fully closed and latched.",
+      "Navigate to the control panel and press 'RESET' to clear the safety relay.",
+      "Attempt to restart the mixer at low speed.",
+      "Monitor for 2–3 minutes to confirm stable operation.",
+    ],
+    escalate:true,
+    escalateNote:"Never bypass an E-stop or safety relay. If it trips again immediately, contact Maintenance — do not restart.",
+  },
+  // ── OVEN ──
+  {
+    id:"o1", line:"All Lines", category:"equipment", severity:"critical", tag:"OVEN",
+    symptom:"Oven temperature alarm — zone deviation above or below setpoint",
+    keywords:["oven","temperature","alarm","zone","deviation","setpoint","too hot","too cold"],
+    cause:"Burner fault, thermocouple failure, or zone controller issue. Can also be caused by door seal failure causing heat loss.",
+    steps:[
+      "Note which zone is in alarm and the current vs setpoint temperature.",
+      "Check that the oven doors are fully closed and seals are intact.",
+      "Navigate to the oven HMI and acknowledge the alarm.",
+      "If temperature is below setpoint: check burner pilot light and ignition status.",
+      "If temperature is above setpoint: check that the zone valve/damper is responding.",
+      "Allow 5 minutes for temperature to stabilize after reset.",
+      "If zone does not recover, contact Maintenance and hold all product from the affected zone.",
+    ],
+    escalate:true,
+    escalateNote:"Hold all product baked during the temperature deviation for QA inspection. Contact Maintenance if zone does not stabilize within 10 minutes.",
+  },
+  {
+    id:"o2", line:"All Lines", category:"quality", severity:"warning", tag:"OVEN",
+    symptom:"Product under-baked — pale crust, soft centre",
+    keywords:["under-baked","pale","soft","light crust","raw","underbaked","colour"],
+    cause:"Oven temperature too low, belt speed too fast, or product loading density too high reducing heat penetration.",
+    steps:[
+      "Check oven zone temperatures against the current recipe setpoints on the HMI.",
+      "If any zone is below setpoint, acknowledge and wait for recovery before continuing.",
+      "Verify the oven belt speed matches the active recipe — reduce by 1–2% if bake colour is consistently light.",
+      "Check product spacing on the belt — crowded loading reduces air circulation.",
+      "Run 10 units through and assess bake colour against the golden standard sample.",
+      "Adjust and re-run until colour and internal texture meet spec.",
+      "Document any parameter changes on the shift log.",
+    ],
+    escalate:false,
+    escalateNote:"",
+  },
+  {
+    id:"o3", line:"All Lines", category:"quality", severity:"warning", tag:"OVEN",
+    symptom:"Product over-baked — dark or burnt crust",
+    keywords:["over-baked","dark","burnt","overbaked","black","dark crust","charred"],
+    cause:"Oven temperature too high, belt speed too slow, or incorrect recipe loaded.",
+    steps:[
+      "Immediately verify the correct recipe is loaded on the oven HMI.",
+      "Check all zone temperatures — compare to recipe setpoints.",
+      "If belt speed is below recipe spec, increase to the correct value.",
+      "If a zone is overtemperature, reduce setpoint by 5°C and wait for stabilization.",
+      "Hold product baked since the issue began for QA inspection.",
+      "Run 10 units at corrected parameters and verify colour is within spec.",
+    ],
+    escalate:true,
+    escalateNote:"Hold all over-baked product for QA disposition. If oven zone cannot be controlled, stop production and contact Maintenance.",
+  },
+  // ── DIVIDER ──
+  {
+    id:"d1", line:"All Lines", category:"equipment", severity:"warning", tag:"DIVIDER",
+    symptom:"Divider not portioning consistently — weight variation out of spec",
+    keywords:["divider","portioning","weight","variation","inconsistent","out of spec","dough weight"],
+    cause:"Divider piston worn, dough hopper level too low, or incorrect pressure setting for the current dough.",
+    steps:[
+      "Check the dough hopper level — refill if below the minimum fill line.",
+      "Verify the divider pressure setting matches the current recipe on the HMI.",
+      "Weigh 5 consecutive pieces on the bench scale and record the values.",
+      "If average weight is low, increase divider pressure by 0.1 bar increments.",
+      "If average weight is high, decrease pressure by 0.1 bar increments.",
+      "Re-weigh 5 pieces after each adjustment until weight is within ±5g of target.",
+      "If variation is large and random, contact Maintenance to inspect the piston seals.",
+    ],
+    escalate:true,
+    escalateNote:"If weight variation exceeds ±10g and does not respond to pressure adjustment, contact Maintenance. Hold out-of-spec product for QA.",
+  },
+  // ── MOULDER ──
+  {
+    id:"mo1", line:"All Lines", category:"equipment", severity:"warning", tag:"MOULDER",
+    symptom:"Moulder jam — dough sticking or jamming in moulding rollers",
+    keywords:["moulder","jam","sticking","rollers","dough jam","clog","stuck"],
+    cause:"Dough too sticky (high hydration or temperature), flour dusting insufficient, or roller gap set too tight.",
+    steps:[
+      "Stop the moulder immediately.",
+      "Clear jammed dough manually using approved tools — never reach into moving parts.",
+      "Check the flour duster is operating and delivering flour evenly to the rollers.",
+      "Verify the roller gap setting matches the current recipe.",
+      "Check dough temperature at the moulder infeed — if above 26°C, alert the mixer operator.",
+      "Clean the rollers thoroughly before restarting.",
+      "Restart at reduced speed and monitor the first 20 pieces.",
+    ],
+    escalate:true,
+    escalateNote:"If jams recur within 30 minutes, contact LL or SL. Frequent jamming may indicate roller wear or a dough formulation issue.",
+  },
+  // ── PROOFER ──
+  {
+    id:"p1", line:"All Lines", category:"equipment", severity:"warning", tag:"PROOFER",
+    symptom:"Proofer humidity alarm — humidity below setpoint",
+    keywords:["proofer","humidity","alarm","dry","low humidity","skin","crust","proofing"],
+    cause:"Steam generator fault, water supply issue, or proofer door left open causing humidity loss.",
+    steps:[
+      "Check all proofer doors are fully closed.",
+      "Navigate to the proofer HMI and acknowledge the humidity alarm.",
+      "Check the steam generator water level and refill if low.",
+      "Inspect the steam generator for fault codes and reset if necessary.",
+      "Allow 5–10 minutes for humidity to recover to setpoint.",
+      "Check product in the proofer for skin formation — if skin is present, extend proof time by 5 minutes.",
+    ],
+    escalate:true,
+    escalateNote:"If steam generator does not recover after reset, contact Maintenance. Skinned dough may affect oven spring — flag for QA.",
+  },
+  {
+    id:"p2", line:"All Lines", category:"equipment", severity:"warning", tag:"PROOFER",
+    symptom:"Proofer temperature alarm — temperature deviation",
+    keywords:["proofer","temperature","alarm","too hot","too cold","temp","proofing time"],
+    cause:"Heating element fault, thermostat issue, or proofer belt speed mismatched to production rate.",
+    steps:[
+      "Check the proofer HMI for the affected zone and deviation amount.",
+      "If temperature is low: check the heating element status and reset any faults.",
+      "If temperature is high: verify the setpoint has not been accidentally changed.",
+      "Confirm proofer belt speed matches the current production recipe.",
+      "Allow 5 minutes for temperature to stabilize after any adjustment.",
+      "If deviation exceeds 3°C and does not respond, contact Maintenance.",
+    ],
+    escalate:true,
+    escalateNote:"Temperature deviations affect proof time and product volume. Flag any product proofed during deviation for QA inspection.",
+  },
+  // ── SLICER ──
+  {
+    id:"s1", line:"All Lines", category:"equipment", severity:"critical", tag:"SLICER",
+    symptom:"Slicer blade alarm — blade fault or blade stopped",
+    keywords:["slicer","blade","alarm","stopped","blade fault","not slicing"],
+    cause:"Blade guard open, blade jam, or motor overcurrent fault from a hard product or foreign object.",
+    steps:[
+      "Stop the slicer immediately and engage E-stop.",
+      "Do NOT reach into the blade area — ensure the blade has fully stopped.",
+      "Check for and remove any jammed product, bones, or foreign objects using approved tools.",
+      "Inspect the blade guard — confirm it is fully closed before reset.",
+      "Clear the fault from the slicer HMI and perform a controlled reset.",
+      "Restart at low speed and monitor the first 5 loaves.",
+      "If fault returns, contact Maintenance — do not continue slicing.",
+    ],
+    escalate:true,
+    escalateNote:"Never bypass blade safety interlocks. If the fault returns after reset, stop production and contact Maintenance immediately.",
+  },
+  {
+    id:"s2", line:"All Lines", category:"quality", severity:"warning", tag:"SLICER",
+    symptom:"Inconsistent slice thickness — uneven slices in the bag",
+    keywords:["slices","thickness","uneven","inconsistent","thick","thin","slicer","pusher"],
+    cause:"Build-up on the pusher mechanism, worn blade, or incorrect slice thickness parameter on HMI.",
+    steps:[
+      "Stop the slicer and inspect the pusher for product build-up or debris.",
+      "Clean the pusher thoroughly.",
+      "Check the slice thickness parameter on the HMI against the active recipe.",
+      "Inspect the blade for nicks or dullness — if blade appears worn, notify Maintenance for change.",
+      "Restart and inspect the next 10 sliced loaves.",
+      "If inconsistency persists, contact LL or SL.",
+    ],
+    escalate:true,
+    escalateNote:"Inconsistent slice thickness may cause weight issues. Flag product for QA if weight is out of spec.",
+  },
+  // ── WRAPPER / PACKAGING ──
+  {
+    id:"w1", line:"All Lines", category:"equipment", severity:"warning", tag:"WRAPPER",
+    symptom:"Wrapper jaw not sealing — open or weak end seals",
+    keywords:["wrapper","seal","jaw","open seal","end seal","packaging","not sealing","weak seal"],
+    cause:"Jaw temperature too low, jaw pressure insufficient, or film type mismatch.",
+    steps:[
+      "Check the jaw temperature on the wrapper HMI — compare to recipe setpoint.",
+      "If temperature is below setpoint, wait for recovery (up to 3 minutes).",
+      "Verify the jaw pressure setting matches the current film specification.",
+      "Inspect the jaw sealing surface for product contamination or debris — clean if necessary.",
+      "Run 5 test packs and inspect seals by pulling them apart gently.",
+      "Adjust jaw temperature in 2°C increments until seals are strong.",
+      "Document the new setting if a permanent adjustment is needed.",
+    ],
+    escalate:true,
+    escalateNote:"Open seals compromise product shelf life. Hold all affected product for QA inspection. Contact Maintenance if jaw does not reach setpoint.",
+  },
+  {
+    id:"w2", line:"All Lines", category:"equipment", severity:"warning", tag:"WRAPPER",
+    symptom:"Wrapper film jam or film break",
+    keywords:["wrapper","film","jam","break","film break","film jam","packaging"],
+    cause:"Film roll misaligned, splice failure, or film tension set incorrectly for the current roll.",
+    steps:[
+      "Stop the wrapper and clear the jammed or broken film from the film path.",
+      "Check the film roll alignment — ensure it sits square on the film mount.",
+      "If the film broke at a splice, re-splice using the approved splicing tape and procedure.",
+      "Thread the film through the film path following the routing diagram on the machine.",
+      "Check the film tension setting — adjust if the film was visibly over- or under-tensioned.",
+      "Run 10 packs and confirm consistent film feed without breaks.",
+    ],
+    escalate:false,
+    escalateNote:"",
+  },
+  // ── CONVEYOR ──
+  {
+    id:"c1", line:"All Lines", category:"equipment", severity:"warning", tag:"CONVEYOR",
+    symptom:"Conveyor belt slipping, jerking, or tracking off-centre",
+    keywords:["conveyor","belt","slipping","jerking","tracking","off centre","drift"],
+    cause:"Product build-up on drive roller, worn belt, or tracking roller misaligned.",
+    steps:[
+      "Stop the line and inspect the drive roller for product build-up.",
+      "If build-up is found, call Sanitation to clean the belt and roller.",
+      "Inspect the tracking rollers at both ends of the conveyor.",
+      "Adjust the tracking roller on the side the belt is drifting toward — turn the adjuster bolt ¼ turn at a time.",
+      "Restart the conveyor and observe tracking for 2 minutes.",
+      "Repeat adjustment if drift continues.",
+      "If belt is visibly cracked or stretched, contact Maintenance for belt replacement.",
+    ],
+    escalate:true,
+    escalateNote:"If slipping or tracking cannot be corrected, stop the line and contact Maintenance. A drifting belt can cause jams and product damage.",
+  },
+  // ── METAL DETECTOR ──
+  {
+    id:"md1", line:"All Lines", category:"equipment", severity:"critical", tag:"METAL DETECTOR",
+    symptom:"Metal detector rejecting product — frequent false rejects",
+    keywords:["metal detector","false reject","reject","alarm","MD","metal","false alarm"],
+    cause:"Product effect not calibrated for the current product, nearby equipment interference, or detector head contamination.",
+    steps:[
+      "Do NOT silence or bypass the metal detector — investigate first.",
+      "Check the product effect setting on the detector HMI — confirm it matches the current SKU.",
+      "Perform a product effect learn/calibration if the SKU has changed since last calibration.",
+      "Check for any nearby equipment (motors, conveyors) recently moved near the detector head.",
+      "Inspect the detector aperture for product residue or foreign material — clean if necessary.",
+      "Run the test piece (Fe, Non-Fe, SS) to confirm the detector is still detecting correctly.",
+      "If false rejects continue, contact QA and Maintenance before resuming production.",
+    ],
+    escalate:true,
+    escalateNote:"Never disable or bypass the metal detector. Contact QA immediately if cause of false rejects is unknown. All rejected product must be quarantined.",
+  },
+  {
+    id:"md2", line:"All Lines", category:"equipment", severity:"critical", tag:"METAL DETECTOR",
+    symptom:"Metal detector confirmed metal detection — real detection event",
+    keywords:["metal detector","metal found","confirmed","real detection","contamination","metal in product"],
+    cause:"Metal contamination present in product or packaging material.",
+    steps:[
+      "Stop the line immediately.",
+      "Quarantine ALL product from the current run — do not release any product.",
+      "Contact QA immediately.",
+      "Locate and retain the rejected pack(s).",
+      "Do not restart the line until QA has cleared the product and identified the source.",
+      "Complete a metal contamination incident report.",
+      "Maintenance to inspect all upstream equipment for broken/missing metal parts.",
+    ],
+    escalate:true,
+    escalateNote:"FOOD SAFETY EVENT. Contact QA and Plant Manager immediately. Line must not restart until source is identified and product cleared.",
+  },
+  // ── QUALITY ──
+  {
+    id:"q1", line:"All Lines", category:"quality", severity:"warning", tag:"QUALITY",
+    symptom:"Product weight out of spec — underweight or overweight",
+    keywords:["weight","underweight","overweight","out of spec","scale","check weigher","weight check"],
+    cause:"Divider portioning drift, incorrect recipe weight, or check weigher calibration issue.",
+    steps:[
+      "Weigh 10 consecutive units on the certified bench scale.",
+      "Record weights and compare to the recipe target weight and tolerance.",
+      "If underweight: increase divider pressure in 0.1 bar steps, re-weigh after each change.",
+      "If overweight: reduce divider pressure in 0.1 bar steps, re-weigh after each change.",
+      "Verify the check weigher is calibrated — run the calibration weight and confirm display matches.",
+      "Hold all out-of-spec product for QA disposition.",
+      "Log the adjustment on the production sheet.",
+    ],
+    escalate:true,
+    escalateNote:"Hold all out-of-spec product for QA disposition. If weight cannot be brought into spec within 3 adjustments, contact LL or SL.",
+  },
+  {
+    id:"q2", line:"All Lines", category:"quality", severity:"warning", tag:"QUALITY",
+    symptom:"Air pockets or large holes in product crumb",
+    keywords:["air pockets","holes","crumb","voids","bubble","large holes","open texture","gas"],
+    cause:"Over-proofing, excessive gas from yeast, or folding issue during moulding.",
+    steps:[
+      "Check proofer temperature and humidity setpoints against the recipe.",
+      "Verify proofer belt speed — a slow speed increases proof time and can cause over-proofing.",
+      "Inspect the moulding station for incorrect fold pattern or roller gap.",
+      "Check yeast dosage on the mixer recipe — confirm it has not been accidentally doubled.",
+      "Evaluate the last 10 baked units — if more than 3 are affected, hold for QA.",
+      "Adjust proof time (belt speed) by +/- 2% and monitor the next batch.",
+    ],
+    escalate:true,
+    escalateNote:"Hold affected product for QA inspection. If more than 20% of product has voids, stop the run and contact LL or SL.",
+  },
+  // ── SAFETY ──
+  {
+    id:"sf1", line:"All Lines", category:"safety", severity:"critical", tag:"SAFETY",
+    symptom:"Line E-stop activated — line will not restart",
+    keywords:["e-stop","emergency stop","line stopped","won't start","safety","reset","not restarting"],
+    cause:"Emergency stop activated (intentional or accidental), safety gate open, or safety relay trip.",
+    steps:[
+      "Identify the source of the E-stop — walk the entire line to locate the activated button.",
+      "Ensure the reason for the E-stop has been resolved (injury, jam, spill, etc.).",
+      "Pull out all activated E-stop buttons.",
+      "Confirm all safety gates and interlocked guards are closed and latched.",
+      "Press the LINE RESET button at the main control panel.",
+      "Restart individual stations in sequence per startup procedure.",
+      "Log the E-stop event with the time, location, and reason.",
+    ],
+    escalate:true,
+    escalateNote:"If E-stop was activated due to an injury or near-miss, do NOT restart the line. Contact LL, SL, and Safety immediately and preserve the scene.",
+  },
+  // ── DATE CODER ──
+  {
+    id:"ink1", line:"All Lines", category:"equipment", severity:"warning", tag:"CODER",
+    symptom:"Ink jet / date coder not printing or printing incorrect date",
+    keywords:["coder","ink jet","date code","not printing","missing code","best before","date","ink"],
+    cause:"Ink level low, printhead blocked, or date/time parameter not updated at shift start.",
+    steps:[
+      "Check the ink level on the coder — refill if below the minimum line.",
+      "Navigate to the coder HMI and verify the date, time, and best-before offset are correct.",
+      "Update the date/time if incorrect.",
+      "Perform a printhead purge from the coder HMI maintenance menu.",
+      "Print a test code on a label and verify all characters are clear and correctly positioned.",
+      "If printhead remains blocked after 2 purge cycles, contact Maintenance.",
+    ],
+    escalate:true,
+    escalateNote:"Do NOT release product without a legible, correct date code. Hold all affected product for QA inspection and re-coding if possible.",
+  },
+];
+
+// ─── UTILITIES ───────────────────────────────────────────────────────────────
+const uid     = () => Math.random().toString(36).slice(2,9);
+const pad2    = n  => String(n).padStart(2,"0");
+const fmtT    = s  => `${pad2(Math.floor(s/60))}:${pad2(s%60)}`;
+const fmtDate = ts => new Date(ts).toLocaleDateString(undefined,{month:"short",day:"numeric",year:"numeric"});
+const fmtTime = ts => new Date(ts).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"});
+const fmtDateShort = ts => new Date(ts).toLocaleDateString(undefined,{month:"short",day:"numeric"});
+
+function getEmbedUrl(url) {
+  if(!url) return null;
+  const yt = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+  if(yt) return `https://www.youtube.com/embed/${yt[1]}?rel=0`;
+  const vimeo = url.match(/vimeo\.com\/(\d+)/);
+  if(vimeo) return `https://player.vimeo.com/video/${vimeo[1]}`;
+  if(/\.(mp4|webm|ogg|mov)(\?|$)/i.test(url)) return url;
+  return null;
+}
+
+// ─── GLOBAL CSS ───────────────────────────────────────────────────────────────
+const CSS = `
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800;1,9..40,400&display=swap');
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#07090f;--bg-card:#0c1120;--bg-panel:#0f1628;--bg-deep:#090c16;
+  --border:#1a2740;--border-mid:#253550;--border-hi:#304060;
+  --t1:#f1f5f9;--t2:#dde4ef;--t3:#8fa3bf;--t4:#4a5e7a;--t5:#1a2740;
+  --acc:#f59e0b;--acc-d:#d97706;--grn:#22c55e;--red:#ef4444;--blu:#3b82f6;--pur:#a78bfa;--ora:#f97316;
+  --fgf-red:#c8102e;--fgf-dark:#0a0e1a;
+  --card-rad:10px;--panel-rad:14px;
+}
+html,body{height:100%}
+body{background:var(--bg);color:var(--t1);font-family:'DM Sans',system-ui,sans-serif;-webkit-font-smoothing:antialiased;letter-spacing:.01em}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border-mid);border-radius:99px}
+::-webkit-scrollbar-thumb:hover{background:var(--border-hi)}
+
+@keyframes slideInRight{from{transform:translateX(100%)}to{transform:translateX(0)}}
+@keyframes slideUpFade{from{transform:translateY(32px);opacity:0}to{transform:translateY(0);opacity:1}}
+@keyframes popIn{0%{transform:scale(.4);opacity:0}65%{transform:scale(1.1)}100%{transform:scale(1);opacity:1}}
+@keyframes toastIn{from{transform:translateY(20px) translateX(20px);opacity:0}to{transform:translateY(0) translateX(0);opacity:1}}
+@keyframes toastOut{from{opacity:1;transform:scale(1)}to{opacity:0;transform:scale(.9)}}
+@keyframes shimmer{from{background-position:200% center}to{background-position:-200% center}}
+@keyframes shakeErr{0%,100%{transform:translateX(0)}20%{transform:translateX(-6px)}60%{transform:translateX(6px)}}
+@keyframes expandDown{from{opacity:0;transform:translateY(-12px)}to{opacity:1;transform:translateY(0)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes cardIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+
+.card{background:linear-gradient(160deg,#0d1426 0%,#0a1020 100%);border:1px solid var(--border);border-radius:var(--card-rad);cursor:pointer;display:flex;flex-direction:column;transition:transform 200ms cubic-bezier(.16,1,.3,1),box-shadow 200ms ease,border-color 200ms ease;user-select:none;animation:cardIn 250ms ease both;overflow:hidden;}
+.card:hover{transform:translateY(-3px);}
+.card:focus-visible{outline:2px solid var(--acc);outline-offset:3px;}
+.card.sev-critical{border-top:3px solid #ef4444;}
+.card.sev-critical:hover{box-shadow:0 12px 40px rgba(239,68,68,.18),0 0 0 1px rgba(239,68,68,.2);}
+.card.sev-warning{border-top:3px solid #f59e0b;}
+.card.sev-warning:hover{box-shadow:0 12px 40px rgba(245,158,11,.15),0 0 0 1px rgba(245,158,11,.18);}
+.card.sev-advisory{border-top:3px solid #3b82f6;}
+.card.sev-advisory:hover{box-shadow:0 12px 40px rgba(59,130,246,.12),0 0 0 1px rgba(59,130,246,.15);}
+.card-body{padding:14px 16px;flex:1;}
+.card-footer{padding:10px 16px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:rgba(0,0,0,.25);}
+.card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px;}
+
+.step{border-radius:8px;transition:background 120ms ease;cursor:pointer;}
+.step:hover:not(.step--locked){background:rgba(255,255,255,.035);}
+.step--locked{cursor:default;}
+.check-pop{animation:popIn 220ms cubic-bezier(.16,1,.3,1) forwards;}
+
+.btn{cursor:pointer;border:none;border-radius:8px;font-family:inherit;font-weight:700;font-size:13px;padding:9px 16px;transition:all 150ms ease;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;letter-spacing:.01em;}
+.btn:hover{filter:brightness(1.12)}.btn:active{transform:scale(.97);}
+.btn:focus-visible{outline:2px solid var(--acc);outline-offset:2px;}
+.btn--ghost{background:rgba(255,255,255,.04);border:1px solid var(--border-mid);color:var(--t3);}
+.btn--ghost:hover{background:rgba(255,255,255,.07);border-color:var(--border-hi);color:var(--t2);}
+.btn--green{background:var(--grn);color:#000;}
+.btn--amber{background:linear-gradient(135deg,#f59e0b,#d97706);color:#000;box-shadow:0 4px 14px rgba(245,158,11,.3);}
+.btn--amber:hover{box-shadow:0 6px 20px rgba(245,158,11,.4);}
+.btn--red{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.28);color:var(--red);}
+.btn--blue{background:rgba(59,130,246,.1);border:1px solid rgba(59,130,246,.28);color:#3b82f6;}
+.btn--fgf{background:linear-gradient(135deg,#c8102e,#a00d24);color:#fff;box-shadow:0 4px 14px rgba(200,16,46,.3);}
+.btn--fgf:hover{box-shadow:0 6px 20px rgba(200,16,46,.4);}
+.btn--full{width:100%;justify-content:center;}
+.btn--cta{background:linear-gradient(135deg,#f59e0b,#f97316);color:#000;font-size:12px;padding:7px 14px;border-radius:7px;box-shadow:0 3px 12px rgba(245,158,11,.25);}
+.btn--cta:hover{box-shadow:0 6px 20px rgba(245,158,11,.4);}
+
+input,textarea{font-family:inherit;outline:none;}
+.input{width:100%;background:rgba(255,255,255,.04);border:1.5px solid var(--border-mid);border-radius:8px;padding:10px 12px;color:var(--t1);font-size:13px;transition:border-color 150ms,background 150ms;}
+.input:focus{border-color:var(--acc);background:rgba(245,158,11,.04);}
+.input--error{border-color:var(--red)!important;animation:shakeErr 320ms ease;}
+select.input{cursor:pointer;}
+
+.panel{animation:slideInRight 300ms cubic-bezier(.16,1,.3,1) forwards;}
+.modal{animation:slideUpFade 280ms cubic-bezier(.16,1,.3,1) forwards;}
+.toast{animation:toastIn 320ms cubic-bezier(.16,1,.3,1) forwards;}
+.toast--out{animation:toastOut 280ms ease forwards;}
+.confirm-tile{animation:popIn 320ms cubic-bezier(.16,1,.3,1) forwards;}
+
+.drop-zone{border:2px dashed var(--border-mid);border-radius:10px;padding:24px;text-align:center;cursor:pointer;transition:border-color 150ms,background 150ms;}
+.drop-zone:hover{border-color:var(--acc);background:rgba(245,158,11,.03);}
+
+.guide-iframe{width:100%;aspect-ratio:16/9;border:none;border-radius:10px;background:#000;}
+
+.app-header{background:linear-gradient(180deg,rgba(10,15,30,.98) 0%,rgba(8,12,22,.98) 100%);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);}
+
+.search-wrap{position:relative;}
+.search-icon{position:absolute;left:13px;top:50%;transform:translateY(-50%);color:var(--t4);pointer-events:none;}
+.search-clear{position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--t3);cursor:pointer;font-size:18px;line-height:1;padding:2px;border-radius:3px;}
+.search-clear:hover{color:var(--t1);}
+
+.nav-tab{cursor:pointer;padding:10px 18px;font-size:13px;font-weight:700;border-radius:8px;transition:all 150ms ease;border:none;background:transparent;color:var(--t4);letter-spacing:.02em;}
+.nav-tab:hover{color:var(--t2);background:rgba(255,255,255,.04);}
+.nav-tab.active{color:var(--acc);background:rgba(245,158,11,.1);}
+
+.kpi{background:linear-gradient(160deg,rgba(255,255,255,.04) 0%,rgba(255,255,255,.01) 100%);border:1px solid var(--border);border-radius:var(--card-rad);padding:14px 16px;}
+
+.ring-circle{transition:stroke-dashoffset 400ms ease,stroke 400ms ease;}
+
+@media(min-width:700px){.panel-body{display:flex;}}
+.panel-col-left{flex:1;min-width:0;overflow-y:auto;padding:18px 20px;border-right:1px solid var(--border);}
+.panel-col-right{width:280px;flex-shrink:0;overflow-y:auto;padding:18px 20px;}
+@media(max-width:699px){.panel-col-left,.panel-col-right{padding:14px 16px;}.panel-col-right{width:100%;border-top:1px solid var(--border);}}
+`;
+
+// ─── STORAGE LAYER ────────────────────────────────────────────────────────────
+const store = {
+  get: k   => { try{ const v=localStorage.getItem(k); return v; }catch{ return null; } },
+  set: (k,v)=> { try{ localStorage.setItem(k,v); }catch{} },
+  del: k   => { try{ localStorage.removeItem(k); }catch{} },
+};
+
+// ─── HOOKS ────────────────────────────────────────────────────────────────────
+function useRecords() {
+  const [records, setRecords] = useState(() => {
+    try{ const r=store.get(LOG_KEY); return r?JSON.parse(r):[]; }catch{ return []; }
+  });
+  const addRecord = useCallback(rec => {
+    setRecords(prev => { const next=[...prev,rec]; store.set(LOG_KEY,JSON.stringify(next)); return next; });
+  },[]);
+  return { records, addRecord };
+}
+
+function useIssues() {
+  const [issues, setIssues] = useState(() => {
+    try{ const r=store.get(ISSUES_KEY); return r?JSON.parse(r):DEFAULT_ISSUES; }catch{ return DEFAULT_ISSUES; }
+  });
+  const saveIssues = useCallback(list => {
+    setIssues(list); store.set(ISSUES_KEY, JSON.stringify(list));
+  },[]);
+  return { issues, saveIssues };
+}
+
+function useGuides() {
+  const [guides, setGuides] = useState(() => {
+    try{ const r=store.get(GUIDES_KEY); return r?JSON.parse(r):{}; }catch{ return {}; }
+  });
+  const saveGuide = useCallback((id,url) => {
+    setGuides(prev => { const next={...prev,[id]:url}; store.set(GUIDES_KEY,JSON.stringify(next)); return next; });
+  },[]);
+  const removeGuide = useCallback(id => {
+    setGuides(prev => { const next={...prev}; delete next[id]; store.set(GUIDES_KEY,JSON.stringify(next)); return next; });
+  },[]);
+  return { guides, saveGuide, removeGuide };
+}
+
+function useTimer(active) {
+  const [elapsed, setElapsed] = useState(0);
+  const origin = useRef(null); const tick = useRef(null);
+  useEffect(() => {
+    if(active){ origin.current=Date.now(); setElapsed(0); tick.current=setInterval(()=>setElapsed(Math.floor((Date.now()-origin.current)/1000)),500); }
+    else clearInterval(tick.current);
+    return () => clearInterval(tick.current);
+  },[active]);
+  return elapsed;
+}
+
+function useEscClose(handler, enabled=true) {
+  useEffect(() => {
+    if(!enabled) return;
+    const fn = e => { if(e.key==="Escape") handler(); };
+    window.addEventListener("keydown",fn); return () => window.removeEventListener("keydown",fn);
+  },[handler,enabled]);
+}
+
+// ─── ATOMS ────────────────────────────────────────────────────────────────────
+const SevBadge = memo(({sev}) => {
+  const c = SEV_CFG[sev]||SEV_CFG.advisory;
+  return <span style={{background:c.bg,color:c.color,border:`1px solid ${c.border}`,borderRadius:4,fontSize:10,fontWeight:800,padding:"2px 7px",letterSpacing:".06em",flexShrink:0}}>{c.label}</span>;
+});
+
+const TagBadge = memo(({tag}) => {
+  const c = TAG_COLORS[tag]||"#94a3b8";
+  return <span style={{background:`${c}1a`,color:c,border:`1px solid ${c}44`,borderRadius:4,fontSize:10,fontWeight:700,padding:"2px 7px",letterSpacing:".04em",flexShrink:0}}>{tag}</span>;
+});
+
+const LineBadge = memo(({line}) => {
+  const c = LINE_COLORS[line]||"#64748b";
+  return <span style={{background:`${c}18`,color:c,border:`1px solid ${c}40`,borderRadius:4,fontSize:10,fontWeight:700,padding:"2px 7px",flexShrink:0}}>{line}</span>;
+});
+
+function ProgressRing({pct}) {
+  const r=24, circ=2*Math.PI*r; const done=pct>=100; const c=done?"#22c55e":"#f59e0b";
+  return (
+    <svg width="58" height="58" viewBox="0 0 58 58" style={{flexShrink:0}}>
+      <circle cx="29" cy="29" r={r} fill="none" stroke="#1e2d47" strokeWidth="3.5"/>
+      <circle cx="29" cy="29" r={r} fill="none" stroke={c} strokeWidth="3.5"
+        strokeLinecap="round" strokeDasharray={circ} strokeDashoffset={circ-(pct/100)*circ}
+        transform="rotate(-90 29 29)" className="ring-circle"/>
+      <text x="29" y="34" textAnchor="middle" fill={c} style={{fontSize:12,fontWeight:800,fontFamily:"'DM Sans',sans-serif"}}>{Math.round(pct)}%</text>
+    </svg>
+  );
+}
+
+// ─── TOAST ────────────────────────────────────────────────────────────────────
+function Toast({toast, onDone}) {
+  const [leaving, setLeaving] = useState(false);
+  useEffect(() => {
+    const t1=setTimeout(()=>setLeaving(true),2600);
+    const t2=setTimeout(onDone,2900);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+  },[]);
+  const isRes = toast.outcome==="resolved";
+  return (
+    <div className={leaving?"toast toast--out":"toast"}
+      style={{position:"fixed",bottom:60,right:20,zIndex:999,
+        background:isRes?"rgba(34,197,94,.12)":"rgba(245,158,11,.12)",
+        border:`1px solid ${isRes?"rgba(34,197,94,.35)":"rgba(245,158,11,.35)"}`,
+        borderRadius:10,padding:"12px 16px",display:"flex",alignItems:"center",gap:12,
+        boxShadow:"0 8px 32px rgba(0,0,0,.4)",maxWidth:320}}>
+      <span style={{fontSize:22}}>{isRes?"✅":"🔔"}</span>
+      <div>
+        <div style={{fontSize:13,fontWeight:700,color:isRes?"#22c55e":"#f59e0b"}}>{isRes?"Issue Resolved":"Issue Escalated"}</div>
+        <div style={{fontSize:11,color:"var(--t3)",marginTop:1}}>{toast.symptom.length>42?toast.symptom.slice(0,42)+"…":toast.symptom}</div>
+      </div>
+    </div>
+  );
+}
+
+// ─── VIDEO GUIDE SECTION ──────────────────────────────────────────────────────
+function VideoGuideSection({issueId, guideUrl, onSave, onRemove}) {
+  const [editing, setEditing] = useState(!guideUrl);
+  const [draft, setDraft] = useState(guideUrl||"");
+  const embedUrl = getEmbedUrl(guideUrl||"");
+  const isVideo = guideUrl&&/\.(mp4|webm|ogg|mov)(\?|$)/i.test(guideUrl);
+
+  const handleSave = () => {
+    if(!draft.trim()) return;
+    onSave(issueId, draft.trim()); setEditing(false);
+  };
+
+  return (
+    <div>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
+        <div style={{fontSize:10,fontWeight:800,color:"var(--t3)",letterSpacing:".07em"}}>🎬 VIDEO GUIDE</div>
+        {guideUrl&&!editing&&(
+          <div style={{display:"flex",gap:6}}>
+            <button className="btn" style={{padding:"3px 9px",fontSize:11,background:"rgba(59,130,246,.1)",border:"1px solid rgba(59,130,246,.3)",color:"#3b82f6"}}
+              onClick={()=>{setDraft(guideUrl);setEditing(true);}}>✏ Change</button>
+            <button className="btn" style={{padding:"3px 9px",fontSize:11,background:"rgba(239,68,68,.1)",border:"1px solid rgba(239,68,68,.3)",color:"var(--red)"}}
+              onClick={()=>{onRemove(issueId);setDraft("");setEditing(true);}}>× Remove</button>
+          </div>
+        )}
+      </div>
+      {guideUrl&&!editing&&(
+        embedUrl&&!isVideo?(
+          <iframe src={embedUrl} className="guide-iframe" allowFullScreen title="Video Guide" allow="accelerometer;autoplay;encrypted-media;gyroscope"/>
+        ):isVideo?(
+          <video src={guideUrl} controls style={{width:"100%",borderRadius:8,maxHeight:240,background:"#000",display:"block"}}/>
+        ):(
+          <a href={guideUrl} target="_blank" rel="noopener noreferrer"
+            style={{display:"flex",alignItems:"center",gap:8,padding:"12px 14px",background:"rgba(59,130,246,.08)",border:"1px solid rgba(59,130,246,.25)",borderRadius:8,color:"#3b82f6",textDecoration:"none",fontSize:13,fontWeight:600}}>
+            <span style={{fontSize:18}}>🔗</span>
+            <div>
+              <div>Open Video Guide</div>
+              <div style={{fontSize:10,color:"var(--t3)",fontWeight:400,marginTop:1,maxWidth:280,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{guideUrl}</div>
+            </div>
+          </a>
+        )
+      )}
+      {editing&&(
+        <div>
+          <div style={{fontSize:11,color:"var(--t3)",marginBottom:6}}>Paste a YouTube, SharePoint, or direct video URL (.mp4)</div>
+          <div style={{display:"flex",gap:6}}>
+            <input value={draft} onChange={e=>setDraft(e.target.value)} placeholder="https://youtube.com/watch?v=…"
+              className="input" style={{flex:1}} onKeyDown={e=>{if(e.key==="Enter")handleSave();}}/>
+            <button className="btn btn--amber" onClick={handleSave} disabled={!draft.trim()}>Save</button>
+            {guideUrl&&<button className="btn btn--ghost" onClick={()=>{setDraft(guideUrl);setEditing(false);}}>Cancel</button>}
+          </div>
+        </div>
+      )}
+      {!guideUrl&&!editing&&(
+        <button className="btn btn--ghost" onClick={()=>setEditing(true)}
+          style={{fontSize:12,width:"100%",justifyContent:"center",borderStyle:"dashed",borderColor:"var(--border-mid)"}}>
+          + Add Video Guide
+        </button>
+      )}
+    </div>
+  );
+}
+
+// ─── ISSUE CARD ───────────────────────────────────────────────────────────────
+const CAT_ICON = {equipment:"⚙️", quality:"🍞", safety:"🦺"};
+
+const IssueCard = memo(({issue, logCount, hasGuide, onClick}) => (
+  <div className={`card sev-${issue.severity}`} tabIndex={0}
+    onClick={onClick} onKeyDown={e=>{if(e.key==="Enter"||e.key===" ")onClick();}}>
+    <div className="card-body">
+      <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:10}}>
+        <div style={{display:"flex",alignItems:"center",gap:5,flexWrap:"wrap",flex:1,minWidth:0}}>
+          <SevBadge sev={issue.severity}/>
+          <TagBadge tag={issue.tag}/>
+          <LineBadge line={issue.line}/>
+        </div>
+        <span style={{fontSize:22,flexShrink:0,marginLeft:8,opacity:.7}}>{CAT_ICON[issue.category]||"🔧"}</span>
+      </div>
+      <div style={{fontSize:14,fontWeight:700,color:"var(--t1)",lineHeight:1.5,marginBottom:8}}>{issue.symptom}</div>
+      <div style={{fontSize:12,color:"var(--t3)",lineHeight:1.55,display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical",overflow:"hidden"}}>{issue.cause}</div>
+    </div>
+    <div className="card-footer">
+      <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
+        <span style={{display:"flex",alignItems:"center",gap:4,fontSize:11,color:"var(--t4)",fontWeight:600}}>
+          <span style={{width:16,height:16,borderRadius:4,background:"rgba(255,255,255,.06)",border:"1px solid var(--border-mid)",display:"inline-flex",alignItems:"center",justifyContent:"center",fontSize:9,fontWeight:800,color:"var(--t3)"}}>{issue.steps.length}</span>
+          steps
+        </span>
+        {logCount>0&&(
+          <span style={{background:logCount>2?"rgba(239,68,68,.1)":"rgba(245,158,11,.08)",color:logCount>2?"#ef4444":"#f59e0b",border:`1px solid ${logCount>2?"rgba(239,68,68,.25)":"rgba(245,158,11,.2)"}`,borderRadius:5,fontSize:10,fontWeight:700,padding:"2px 7px"}}>
+            📋 {logCount}× logged
+          </span>
+        )}
+        {hasGuide&&<span style={{background:"rgba(59,130,246,.08)",color:"#3b82f6",border:"1px solid rgba(59,130,246,.2)",borderRadius:5,fontSize:10,fontWeight:700,padding:"2px 7px"}}>🎬 Guide</span>}
+      </div>
+      <button className="btn btn--cta" onClick={e=>{e.stopPropagation();onClick();}}>Troubleshoot →</button>
+    </div>
+  </div>
+));
+
+// ─── DETAIL PANEL ─────────────────────────────────────────────────────────────
+function DetailPanel({issue, elapsed, steps, isClosed, closedInfo, guideUrl, onToggleStep, onSubmit, onClose, onSaveGuide, onRemoveGuide, escalationEmail}) {
+  const opRef=useRef(null); const signOffRef=useRef(null);
+  const [opName,setOpName]=useState(""); const [sku,setSku]=useState("");
+  const [notes,setNotes]=useState(""); const [opErr,setOpErr]=useState(false);
+  const [errKey,setErrKey]=useState(0);
+
+  const totalSteps=issue.steps.length; const doneCount=steps.size;
+  const pct=totalSteps>0?(doneCount/totalSteps)*100:0; const allDone=doneCount>=totalSteps;
+
+  useEscClose(onClose);
+  useEffect(()=>{ if(allDone&&!isClosed&&signOffRef.current){ signOffRef.current.scrollIntoView({behavior:"smooth",block:"nearest"}); setTimeout(()=>opRef.current?.focus(),350); } },[allDone]);
+  useEffect(()=>{ setOpName(""); setSku(""); setNotes(""); setOpErr(false); },[issue.id]);
+
+  const handleSubmit = outcome => {
+    if(!opName.trim()){ setOpErr(true); setErrKey(k=>k+1); opRef.current?.focus(); return; }
+    const skuVal=sku.trim()?sku.trim().toUpperCase():"N/A";
+    onSubmit({outcome, operator:opName.trim(), sku:skuVal, notes:notes.trim(), timeToFix:fmtT(elapsed)});
+    if(outcome==="escalated"&&escalationEmail&&escalationEmail.trim()){
+      const subj=encodeURIComponent(`[CRE ESCALATION] ${issue.symptom}`);
+      const body=encodeURIComponent(
+        `ISSUE ESCALATED — CRE Plant\n${"─".repeat(48)}\n\n`+
+        `Issue:     ${issue.symptom}\nLine:      ${issue.line}\nTag:       ${issue.tag}   |   Severity: ${issue.severity.toUpperCase()}\n`+
+        `SKU:       ${skuVal}\nOperator:  ${opName.trim()}\nTime:      ${fmtT(elapsed)}\nNotes:     ${notes.trim()||"—"}\n\n`+
+        `Root Cause:\n${issue.cause}\n\n`+
+        (issue.escalateNote?`Escalation Note:\n${issue.escalateNote}\n\n`:"")+
+        `Logged: ${new Date().toLocaleString()}\nApp: ${APP_NAME} v${APP_VER}`
+      );
+      try{ window.open(`mailto:${encodeURIComponent(escalationEmail)}?subject=${subj}&body=${body}`,"_self"); }catch{}
+    }
+  };
+
+  return (
+    <>
+      <div onClick={onClose} style={{position:"fixed",inset:0,background:"rgba(0,0,0,.72)",backdropFilter:"blur(8px)",zIndex:200}}/>
+      <div className="panel" role="dialog" aria-modal="true"
+        style={{position:"fixed",top:0,right:0,width:"min(820px,100vw)",height:"100vh",background:"var(--bg-panel)",borderLeft:"1px solid var(--border)",zIndex:201,display:"flex",flexDirection:"column",overflow:"hidden"}}>
+
+        {/* Header */}
+        <div style={{background:"linear-gradient(180deg,#0e1628 0%,#0b1220 100%)",borderBottom:"1px solid var(--border)",padding:"14px 20px",flexShrink:0}}>
+          <div style={{display:"flex",gap:14,alignItems:"center"}}>
+            <ProgressRing pct={pct}/>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:5,alignItems:"center"}}>
+                <SevBadge sev={issue.severity}/><TagBadge tag={issue.tag}/><LineBadge line={issue.line}/>
+                <span style={{marginLeft:"auto",background:"rgba(255,255,255,.05)",border:"1px solid var(--border-mid)",borderRadius:6,padding:"3px 9px",fontSize:12,color:"var(--t3)",fontVariantNumeric:"tabular-nums"}}>⏱ {fmtT(elapsed)}</span>
+              </div>
+              <h2 style={{fontSize:16,fontWeight:800,color:"var(--t1)",lineHeight:1.4}}>{issue.symptom}</h2>
+              <div style={{fontSize:11,color:"var(--t3)",marginTop:4,display:"flex",alignItems:"center",gap:8}}>
+                <div style={{display:"flex",gap:4,alignItems:"center"}}>
+                  {[...Array(totalSteps)].map((_,i)=>(
+                    <div key={i} style={{width:18,height:4,borderRadius:2,background:steps.has(i)?"#22c55e":"var(--border-mid)",transition:"background 200ms ease"}}/>
+                  ))}
+                </div>
+                <span>{doneCount}/{totalSteps} steps</span>
+                {allDone&&!isClosed&&<span style={{color:"var(--grn)",fontWeight:700}}>✓ Ready to sign off</span>}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Body */}
+        <div className="panel-body" style={{flex:1,overflow:"hidden",minHeight:0}}>
+          {/* Left col */}
+          <div className="panel-col-left">
+            <div style={{display:"flex",flexDirection:"column",gap:14}}>
+              {/* Root cause */}
+              <div style={{background:"linear-gradient(135deg,rgba(59,130,246,.08),rgba(59,130,246,.04))",borderLeft:"3px solid #3b82f6",borderRadius:8,padding:"12px 16px"}}>
+                <div style={{fontSize:10,fontWeight:800,color:"#3b82f6",letterSpacing:".08em",marginBottom:6}}>🔍 ROOT CAUSE</div>
+                <p style={{fontSize:13,color:"var(--t2)",lineHeight:1.7,margin:0}}>{issue.cause}</p>
+              </div>
+              {/* Video */}
+              <div style={{background:"rgba(0,0,0,.25)",border:"1px solid var(--border)",borderRadius:10,padding:"12px 14px"}}>
+                <VideoGuideSection issueId={issue.id} guideUrl={guideUrl} onSave={onSaveGuide} onRemove={onRemoveGuide}/>
+              </div>
+              {/* Steps */}
+              <div>
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
+                  <div style={{fontSize:10,fontWeight:800,color:"var(--t3)",letterSpacing:".08em"}}>📋 CORRECTIVE ACTIONS</div>
+                  <div style={{fontSize:11,color:"var(--t4)"}}>{doneCount}/{totalSteps} done</div>
+                </div>
+                <div style={{display:"flex",flexDirection:"column",gap:5}}>
+                  {issue.steps.map((step,i)=>{
+                    const done=steps.has(i); const locked=isClosed;
+                    return (
+                      <div key={i} className={`step${locked?" step--locked":""}`}
+                        onClick={()=>!locked&&onToggleStep(i)}
+                        role={locked?"listitem":"checkbox"} aria-checked={done} tabIndex={locked?-1:0}
+                        onKeyDown={e=>{if(!locked&&(e.key==="Enter"||e.key===" ")){e.preventDefault();onToggleStep(i);}}}
+                        style={{display:"flex",gap:10,padding:"11px 14px",background:done?"rgba(34,197,94,.07)":"rgba(255,255,255,.025)",border:`1px solid ${done?"rgba(34,197,94,.22)":"var(--border)"}`,borderRadius:8,transition:"all 180ms ease"}}>
+                        <div style={{width:24,height:24,borderRadius:"50%",flexShrink:0,background:done?"var(--grn)":"var(--bg-deep)",border:`2px solid ${done?"var(--grn)":"var(--border-mid)"}`,display:"flex",alignItems:"center",justifyContent:"center",transition:"all 200ms ease",fontSize:11,fontWeight:800,color:done?"#000":"var(--t4)"}}>
+                          {done?<span className="check-pop">✓</span>:i+1}
+                        </div>
+                        <span style={{fontSize:13,color:done?"var(--t4)":"var(--t2)",textDecoration:done?"line-through":"none",lineHeight:1.6,paddingTop:2}}>{step}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+              {issue.escalate&&issue.escalateNote&&(
+                <div style={{background:"rgba(245,158,11,.07)",border:"1px solid rgba(245,158,11,.22)",borderRadius:8,padding:"11px 13px"}}>
+                  <div style={{fontSize:10,fontWeight:800,color:"var(--acc)",letterSpacing:".06em",marginBottom:5}}>⚠ ESCALATION NOTE</div>
+                  <p style={{fontSize:12,color:"var(--t2)",lineHeight:1.65,margin:0}}>{issue.escalateNote}</p>
+                </div>
+              )}
+              <div style={{height:4}}/>
+            </div>
+          </div>
+
+          {/* Right col — sign-off */}
+          <div className="panel-col-right">
+            {isClosed?(
+              <div className="confirm-tile"
+                style={{background:closedInfo.outcome==="resolved"?"rgba(34,197,94,.07)":"rgba(245,158,11,.08)",border:`1px solid ${closedInfo.outcome==="resolved"?"rgba(34,197,94,.28)":"rgba(245,158,11,.28)"}`,borderRadius:10,padding:16}}>
+                <div style={{textAlign:"center",marginBottom:14}}>
+                  <span style={{fontSize:36}}>{closedInfo.outcome==="resolved"?"✅":"🔔"}</span>
+                  <div style={{fontSize:15,fontWeight:800,marginTop:6,color:closedInfo.outcome==="resolved"?"#22c55e":"#f59e0b"}}>
+                    {closedInfo.outcome==="resolved"?"Issue Resolved":"Issue Escalated"}
+                  </div>
+                  <div style={{fontSize:11,color:"var(--t3)",marginTop:2}}>Record saved</div>
+                </div>
+                <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                  {[["👷 Operator",closedInfo.operator],["📦 SKU",closedInfo.sku],["⏱ Time",closedInfo.timeToFix],["📋 Outcome",closedInfo.outcome.toUpperCase()]].map(([l,v])=>(
+                    <div key={l} style={{background:"rgba(0,0,0,.3)",borderRadius:7,padding:"9px 12px",display:"flex",justifyContent:"space-between",alignItems:"center",border:"1px solid var(--border)"}}>
+                      <span style={{fontSize:11,color:"var(--t4)"}}>{l}</span>
+                      <span style={{fontSize:12,fontWeight:700,color:"var(--t1)"}}>{v}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ):(
+              <div ref={signOffRef} style={{display:"flex",flexDirection:"column",gap:12}}>
+                <div style={{fontSize:10,fontWeight:800,color:"var(--t3)",letterSpacing:".08em"}}>📋 SIGN-OFF & RECORD</div>
+                <div>
+                  <label style={{fontSize:11,color:"var(--t3)",display:"block",marginBottom:5,fontWeight:600}}>Operator Name <span style={{color:"var(--red)"}}>*</span></label>
+                  <input key={`err-${errKey}`} ref={opRef} value={opName} onChange={e=>{setOpName(e.target.value);setOpErr(false);}}
+                    placeholder="Your name" className={`input${opErr?" input--error":""}`}/>
+                  {opErr&&<div style={{color:"var(--red)",fontSize:11,marginTop:4,fontWeight:600}}>⚠ Required</div>}
+                </div>
+                <div>
+                  <label style={{fontSize:11,color:"var(--t3)",display:"block",marginBottom:5,fontWeight:600}}>SKU / Product</label>
+                  <input value={sku} onChange={e=>setSku(e.target.value)} placeholder="e.g. CRE-WB100" className="input"/>
+                </div>
+                <div>
+                  <label style={{fontSize:11,color:"var(--t3)",display:"block",marginBottom:5,fontWeight:600}}>Notes <span style={{color:"var(--t4)",fontWeight:400}}>(optional)</span></label>
+                  <textarea value={notes} onChange={e=>setNotes(e.target.value)} rows={3} placeholder="Observations, workarounds…" className="input" style={{resize:"vertical"}}/>
+                </div>
+                {escalationEmail&&escalationEmail.trim()&&(
+                  <div style={{background:"rgba(59,130,246,.06)",border:"1px solid rgba(59,130,246,.18)",borderRadius:8,padding:"10px 12px"}}>
+                    <div style={{fontSize:10,color:"var(--t4)",marginBottom:2}}>📧 On escalation, will notify:</div>
+                    <div style={{fontSize:11,color:"#3b82f6",fontWeight:600,wordBreak:"break-all"}}>{escalationEmail}</div>
+                  </div>
+                )}
+                <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                  <button className="btn btn--green btn--full" style={{fontSize:13,padding:"11px"}} onClick={()=>handleSubmit("resolved")}>
+                    ✅ {allDone?"Mark as Resolved":"Resolve (incomplete steps)"}
+                  </button>
+                  <button className="btn btn--amber btn--full" style={{fontSize:13,padding:"11px"}} onClick={()=>handleSubmit("escalated")}>
+                    🔔 Escalate Issue
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div style={{background:"rgba(0,0,0,.4)",borderTop:"1px solid var(--border)",padding:"10px 20px",display:"flex",gap:8,flexShrink:0}}>
+          <button className="btn btn--ghost" style={{flex:1,justifyContent:"center"}} onClick={onClose}>
+            ← Close <span style={{fontSize:10,color:"var(--t5)",marginLeft:"auto"}}>ESC</span>
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ─── ANALYTICS TAB ────────────────────────────────────────────────────────────
+function AnalyticsTab({records, issues}) {
+  const [from, setFrom] = useState("");
+  const [to, setTo]     = useState("");
+
+  const filtered = useMemo(()=>{
+    let r=[...records];
+    if(from){ const f=new Date(from).getTime(); r=r.filter(x=>x.timestamp>=f); }
+    if(to){ const t=new Date(to).getTime()+86399999; r=r.filter(x=>x.timestamp<=t); }
+    return r;
+  },[records,from,to]);
+
+  const total=filtered.length;
+  const res=filtered.filter(r=>r.outcome==="resolved").length;
+  const esc=filtered.filter(r=>r.outcome==="escalated").length;
+  const resPct=total?Math.round((res/total)*100):0;
+  const today=records.filter(r=>Date.now()-r.timestamp<86400000).length;
+  const week=records.filter(r=>Date.now()-r.timestamp<604800000).length;
+
+  const tagCounts = useMemo(()=>{
+    const m={}; filtered.forEach(r=>{ m[r.tag]=(m[r.tag]||0)+1; });
+    return Object.entries(m).sort((a,b)=>b[1]-a[1]);
+  },[filtered]);
+
+  const issueCounts = useMemo(()=>{
+    const m={}; filtered.forEach(r=>{ m[r.issueId]=(m[r.issueId]||0)+1; });
+    return Object.entries(m).sort((a,b)=>b[1]-a[1]).slice(0,8)
+      .map(([id,n])=>({issue:issues.find(i=>i.id===id)||{symptom:id,tag:"?"},count:n}));
+  },[filtered,issues]);
+
+  const lineCounts = useMemo(()=>{
+    const m={}; filtered.forEach(r=>{ m[r.line||"Unknown"]=(m[r.line||"Unknown"]||0)+1; });
+    return Object.entries(m).sort((a,b)=>b[1]-a[1]);
+  },[filtered]);
+
+  const recent=[...filtered].sort((a,b)=>b.timestamp-a.timestamp).slice(0,10);
+  const maxTag=tagCounts[0]?.[1]||1;
+  const maxIss=issueCounts[0]?.count||1;
+  const maxLine=lineCounts[0]?.[1]||1;
+
+  if(records.length===0){
+    return (
+      <div style={{textAlign:"center",padding:"60px 20px",color:"var(--t4)"}}>
+        <div style={{fontSize:48,marginBottom:16}}>📊</div>
+        <div style={{fontSize:18,fontWeight:700,color:"var(--t3)",marginBottom:8}}>No data yet</div>
+        <div style={{fontSize:13}}>Resolve or escalate issues to see analytics here</div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{padding:"16px 20px",maxWidth:960,margin:"0 auto"}}>
+      {/* Date filter */}
+      <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:16,flexWrap:"wrap"}}>
+        <span style={{fontSize:12,color:"var(--t3)",fontWeight:600}}>Filter by date:</span>
+        <input type="date" value={from} onChange={e=>setFrom(e.target.value)} className="input" style={{width:160,padding:"7px 10px",fontSize:12}}/>
+        <span style={{color:"var(--t4)",fontSize:12}}>to</span>
+        <input type="date" value={to} onChange={e=>setTo(e.target.value)} className="input" style={{width:160,padding:"7px 10px",fontSize:12}}/>
+        {(from||to)&&<button className="btn btn--ghost" style={{fontSize:11,padding:"7px 12px"}} onClick={()=>{setFrom("");setTo("");}}>Clear</button>}
+        <span style={{fontSize:11,color:"var(--t4)",marginLeft:"auto"}}>{total} record{total!==1?"s":""} shown</span>
+      </div>
+
+      {/* KPI row */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(140px,1fr))",gap:8,marginBottom:16}}>
+        {[
+          {label:"Today",value:today,color:"#f59e0b",icon:"📅"},
+          {label:"This Week",value:week,color:"#3b82f6",icon:"📆"},
+          {label:"Total (filtered)",value:total,color:"#f1f5f9",icon:"📋"},
+          {label:"Resolved",value:res,color:"#22c55e",icon:"✅"},
+          {label:"Escalated",value:esc,color:"#f59e0b",icon:"🔔"},
+          {label:"Resolution Rate",value:`${resPct}%`,color:"#22c55e",icon:"📈"},
+        ].map(({label,value,color,icon})=>(
+          <div key={label} className="kpi" style={{textAlign:"center"}}>
+            <div style={{fontSize:10,color:"var(--t3)",marginBottom:3}}>{icon} {label}</div>
+            <div style={{fontSize:22,fontWeight:800,color,fontVariantNumeric:"tabular-nums"}}>{value}</div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))",gap:12,marginBottom:16}}>
+        {/* Issues by tag */}
+        <div style={{background:"var(--bg-card)",border:"1px solid var(--border)",borderRadius:10,padding:"14px 16px"}}>
+          <div style={{fontSize:11,fontWeight:800,color:"var(--t3)",letterSpacing:".07em",marginBottom:12}}>ISSUES BY TAG</div>
+          {tagCounts.length===0?<div style={{fontSize:12,color:"var(--t4)"}}>No data</div>:tagCounts.map(([tag,count])=>{
+            const color=TAG_COLORS[tag]||"#94a3b8";
+            return (
+              <div key={tag} style={{marginBottom:8}}>
+                <div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}>
+                  <span style={{fontSize:12,color,fontWeight:700}}>{tag}</span>
+                  <span style={{fontSize:12,color:"var(--t3)"}}>{count}</span>
+                </div>
+                <div style={{height:5,background:"var(--border)",borderRadius:99,overflow:"hidden"}}>
+                  <div style={{width:`${(count/maxTag)*100}%`,height:"100%",background:color,borderRadius:99,transition:"width 600ms ease"}}/>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Issues by line */}
+        <div style={{background:"var(--bg-card)",border:"1px solid var(--border)",borderRadius:10,padding:"14px 16px"}}>
+          <div style={{fontSize:11,fontWeight:800,color:"var(--t3)",letterSpacing:".07em",marginBottom:12}}>ISSUES BY LINE</div>
+          {lineCounts.length===0?<div style={{fontSize:12,color:"var(--t4)"}}>No data</div>:lineCounts.map(([line,count])=>{
+            const color=LINE_COLORS[line]||"#64748b";
+            return (
+              <div key={line} style={{marginBottom:8}}>
+                <div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}>
+                  <span style={{fontSize:12,color,fontWeight:700}}>{line}</span>
+                  <span style={{fontSize:12,color:"var(--t3)"}}>{count}</span>
+                </div>
+                <div style={{height:5,background:"var(--border)",borderRadius:99,overflow:"hidden"}}>
+                  <div style={{width:`${(count/maxLine)*100}%`,height:"100%",background:color,borderRadius:99,transition:"width 600ms ease"}}/>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Outcome split */}
+        <div style={{background:"var(--bg-card)",border:"1px solid var(--border)",borderRadius:10,padding:"14px 16px"}}>
+          <div style={{fontSize:11,fontWeight:800,color:"var(--t3)",letterSpacing:".07em",marginBottom:12}}>OUTCOME SPLIT</div>
+          {total===0?<div style={{fontSize:12,color:"var(--t4)"}}>No data</div>:(
+            <>
+              <div style={{display:"flex",gap:4,marginBottom:8,height:12,borderRadius:99,overflow:"hidden"}}>
+                {res>0&&<div style={{flex:res,background:"#22c55e"}}/>}
+                {esc>0&&<div style={{flex:esc,background:"#f59e0b"}}/>}
+              </div>
+              <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                <div style={{display:"flex",justifyContent:"space-between"}}>
+                  <span style={{fontSize:13,color:"#22c55e",fontWeight:700}}>✅ Resolved</span>
+                  <span style={{fontSize:13,fontWeight:800,color:"#22c55e"}}>{res} <span style={{fontSize:11,color:"var(--t4)"}}>({resPct}%)</span></span>
+                </div>
+                <div style={{display:"flex",justifyContent:"space-between"}}>
+                  <span style={{fontSize:13,color:"#f59e0b",fontWeight:700}}>🔔 Escalated</span>
+                  <span style={{fontSize:13,fontWeight:800,color:"#f59e0b"}}>{esc} <span style={{fontSize:11,color:"var(--t4)"}}>({total?Math.round((esc/total)*100):0}%)</span></span>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Top recurring issues */}
+      <div style={{background:"var(--bg-card)",border:"1px solid var(--border)",borderRadius:10,padding:"14px 16px",marginBottom:16}}>
+        <div style={{fontSize:11,fontWeight:800,color:"var(--t3)",letterSpacing:".07em",marginBottom:12}}>TOP RECURRING ISSUES</div>
+        {issueCounts.length===0?<div style={{fontSize:12,color:"var(--t4)"}}>No data</div>:(
+          <div style={{display:"flex",flexDirection:"column",gap:8}}>
+            {issueCounts.map(({issue,count},i)=>(
+              <div key={i}>
+                <div style={{display:"flex",justifyContent:"space-between",marginBottom:3,gap:8}}>
+                  <span style={{fontSize:12,color:"var(--t2)",flex:1,minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                    <span style={{color:"var(--t4)",marginRight:6,fontFamily:"monospace"}}>{i+1}.</span>{issue.symptom}
+                  </span>
+                  <span style={{fontSize:12,fontWeight:800,color:count>3?"#ef4444":count>1?"#f59e0b":"var(--t3)",flexShrink:0}}>{count}×</span>
+                </div>
+                <div style={{height:4,background:"var(--border)",borderRadius:99,overflow:"hidden"}}>
+                  <div style={{width:`${(count/maxIss)*100}%`,height:"100%",background:count>3?"#ef4444":count>1?"#f59e0b":"#334155",borderRadius:99,transition:"width 600ms ease"}}/>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Recent log table */}
+      <div style={{background:"var(--bg-card)",border:"1px solid var(--border)",borderRadius:10,padding:"14px 16px"}}>
+        <div style={{fontSize:11,fontWeight:800,color:"var(--t3)",letterSpacing:".07em",marginBottom:12}}>RECENT LOG</div>
+        {recent.length===0?<div style={{fontSize:12,color:"var(--t4)"}}>No records</div>:(
+          <div style={{overflowX:"auto"}}>
+            <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+              <thead>
+                <tr style={{borderBottom:"1px solid var(--border)"}}>
+                  {["Date","Time","Symptom","Tag","Line","SKU","Operator","Time to Fix","Outcome"].map(h=>(
+                    <th key={h} style={{padding:"6px 10px",textAlign:"left",color:"var(--t4)",fontWeight:700,fontSize:10,letterSpacing:".06em",whiteSpace:"nowrap"}}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {recent.map(r=>(
+                  <tr key={r.id} style={{borderBottom:"1px solid rgba(26,39,64,.5)"}}>
+                    <td style={{padding:"8px 10px",color:"var(--t3)",whiteSpace:"nowrap"}}>{fmtDate(r.timestamp)}</td>
+                    <td style={{padding:"8px 10px",color:"var(--t3)",whiteSpace:"nowrap"}}>{fmtTime(r.timestamp)}</td>
+                    <td style={{padding:"8px 10px",color:"var(--t2)",maxWidth:220,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.symptom}</td>
+                    <td style={{padding:"8px 10px"}}><TagBadge tag={r.tag}/></td>
+                    <td style={{padding:"8px 10px"}}><LineBadge line={r.line||"?"}/></td>
+                    <td style={{padding:"8px 10px",color:"var(--pur)",fontFamily:"monospace",fontSize:11}}>{r.sku}</td>
+                    <td style={{padding:"8px 10px",color:"var(--t2)",whiteSpace:"nowrap"}}>{r.operator}</td>
+                    <td style={{padding:"8px 10px",color:"var(--t3)",fontFamily:"monospace",whiteSpace:"nowrap"}}>{r.timeToFix}</td>
+                    <td style={{padding:"8px 10px"}}>
+                      <span style={{background:r.outcome==="resolved"?"rgba(34,197,94,.12)":"rgba(245,158,11,.12)",color:r.outcome==="resolved"?"#22c55e":"#f59e0b",border:`1px solid ${r.outcome==="resolved"?"rgba(34,197,94,.3)":"rgba(245,158,11,.3)"}`,borderRadius:4,fontSize:10,fontWeight:700,padding:"2px 7px"}}>
+                        {r.outcome==="resolved"?"✅ Resolved":"🔔 Escalated"}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── ADMIN PANEL ──────────────────────────────────────────────────────────────
+function AdminPanel({issues, saveIssues, escalationEmail, saveEscalation, currentPin, savePin}) {
+  const [view,setView]=useState("list"); // list | add | edit | settings
+  const [editTarget,setEditTarget]=useState(null);
+  const [confirm,setConfirm]=useState(null);
+
+  const startEdit = issue => { setEditTarget(issue); setView("edit"); };
+  const startAdd  = ()    => { setEditTarget(null);  setView("add");  };
+
+  const handleSave = issue => {
+    if(editTarget){
+      saveIssues(issues.map(i=>i.id===issue.id?issue:i));
+    } else {
+      saveIssues([...issues,issue]);
+    }
+    setView("list");
+  };
+
+  const handleDelete = id => {
+    saveIssues(issues.filter(i=>i.id!==id));
+    setConfirm(null);
+  };
+
+  if(view==="add"||view==="edit"){
+    return <IssueForm initial={editTarget} onSave={handleSave} onCancel={()=>setView("list")}/>;
+  }
+
+  if(view==="settings"){
+    return <SettingsForm escalationEmail={escalationEmail} saveEscalation={saveEscalation} currentPin={currentPin} savePin={savePin} onBack={()=>setView("list")}/>;
+  }
+
+  return (
+    <div style={{padding:"16px 20px",maxWidth:900,margin:"0 auto"}}>
+      <div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap"}}>
+        <button className="btn btn--amber" onClick={startAdd}>+ Add New Issue</button>
+        <button className="btn btn--ghost" onClick={()=>setView("settings")}>⚙ Settings</button>
+        <span style={{marginLeft:"auto",fontSize:12,color:"var(--t4)",alignSelf:"center"}}>{issues.length} issues total</span>
+      </div>
+      <div style={{display:"flex",flexDirection:"column",gap:8}}>
+        {issues.map(issue=>(
+          <div key={issue.id} style={{background:"var(--bg-card)",border:"1px solid var(--border)",borderRadius:10,padding:"12px 16px",display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+            <div style={{flex:1,minWidth:200}}>
+              <div style={{display:"flex",gap:5,marginBottom:4,flexWrap:"wrap"}}>
+                <SevBadge sev={issue.severity}/><TagBadge tag={issue.tag}/><LineBadge line={issue.line}/>
+              </div>
+              <div style={{fontSize:13,fontWeight:700,color:"var(--t1)"}}>{issue.symptom}</div>
+              <div style={{fontSize:11,color:"var(--t4)",marginTop:2}}>{issue.steps.length} steps · {issue.category}</div>
+            </div>
+            <div style={{display:"flex",gap:6"}}>
+              <button className="btn btn--blue" style={{padding:"6px 12px",fontSize:12}} onClick={()=>startEdit(issue)}>✏ Edit</button>
+              <button className="btn btn--red" style={{padding:"6px 12px",fontSize:12}} onClick={()=>setConfirm(issue.id)}>🗑 Delete</button>
+            </div>
+          </div>
+        ))}
+      </div>
+      {confirm&&(
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.7)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:300}}>
+          <div className="modal" style={{background:"var(--bg-panel)",border:"1px solid var(--border)",borderRadius:14,padding:24,width:"min(360px,90vw)",textAlign:"center"}}>
+            <div style={{fontSize:32,marginBottom:12}}>🗑</div>
+            <div style={{fontSize:15,fontWeight:700,marginBottom:8}}>Delete this issue?</div>
+            <div style={{fontSize:12,color:"var(--t3)",marginBottom:20}}>This cannot be undone.</div>
+            <div style={{display:"flex",gap:8,justifyContent:"center"}}>
+              <button className="btn btn--red" onClick={()=>handleDelete(confirm)}>Delete</button>
+              <button className="btn btn--ghost" onClick={()=>setConfirm(null)}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function IssueForm({initial, onSave, onCancel}) {
+  const blank = {id:uid(),line:"All Lines",category:"equipment",severity:"warning",tag:"",symptom:"",keywords:[],cause:"",steps:[""],escalate:false,escalateNote:""};
+  const [form,setForm]=useState(initial||blank);
+  const [stepInput,setStepInput]=useState((initial?.steps||[""]).join("\n"));
+  const [errors,setErrors]=useState({});
+
+  const set = (k,v) => setForm(f=>({...f,[k]:v}));
+
+  const handleSubmit = () => {
+    const errs={};
+    if(!form.symptom.trim()) errs.symptom="Required";
+    if(!form.cause.trim()) errs.cause="Required";
+    if(!form.tag.trim()) errs.tag="Required";
+    const steps=stepInput.split("\n").map(s=>s.trim()).filter(Boolean);
+    if(steps.length===0) errs.steps="At least one step required";
+    if(Object.keys(errs).length){ setErrors(errs); return; }
+    onSave({...form,steps,keywords:form.symptom.toLowerCase().split(" ")});
+  };
+
+  const field = (label,key,placeholder,required) => (
+    <div style={{marginBottom:14}}>
+      <label style={{fontSize:11,color:"var(--t3)",display:"block",marginBottom:5,fontWeight:600}}>{label}{required&&<span style={{color:"var(--red)"}}> *</span>}</label>
+      <input value={form[key]||""} onChange={e=>set(key,e.target.value)} placeholder={placeholder}
+        className={`input${errors[key]?" input--error":""}`}/>
+      {errors[key]&&<div style={{color:"var(--red)",fontSize:11,marginTop:3}}>{errors[key]}</div>}
+    </div>
+  );
+
+  return (
+    <div style={{padding:"16px 20px",maxWidth:700,margin:"0 auto"}}>
+      <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:20}}>
+        <button className="btn btn--ghost" onClick={onCancel}>← Back</button>
+        <h2 style={{fontSize:16,fontWeight:800}}>{initial?"Edit Issue":"Add New Issue"}</h2>
+      </div>
+      <div style={{background:"var(--bg-card)",border:"1px solid var(--border)",borderRadius:12,padding:20}}>
+        {field("Symptom / Issue Title","symptom","What the operator sees…",true)}
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:14}}>
+          <div>
+            <label style={{fontSize:11,color:"var(--t3)",display:"block",marginBottom:5,fontWeight:600}}>Line</label>
+            <select value={form.line} onChange={e=>set("line",e.target.value)} className="input">
+              {["All Lines","Line 1","Line 2","Line 3","Line 4","Line 5"].map(l=><option key={l}>{l}</option>)}
+            </select>
+          </div>
+          <div>
+            <label style={{fontSize:11,color:"var(--t3)",display:"block",marginBottom:5,fontWeight:600}}>Category</label>
+            <select value={form.category} onChange={e=>set("category",e.target.value)} className="input">
+              {["equipment","quality","safety"].map(c=><option key={c}>{c}</option>)}
+            </select>
+          </div>
+          <div>
+            <label style={{fontSize:11,color:"var(--t3)",display:"block",marginBottom:5,fontWeight:600}}>Severity</label>
+            <select value={form.severity} onChange={e=>set("severity",e.target.value)} className="input">
+              {["critical","warning","advisory"].map(s=><option key={s}>{s}</option>)}
+            </select>
+          </div>
+        </div>
+        <div style={{marginBottom:14}}>
+          <label style={{fontSize:11,color:"var(--t3)",display:"block",marginBottom:5,fontWeight:600}}>Tag <span style={{color:"var(--red)"}}>*</span></label>
+          <input value={form.tag} onChange={e=>set("tag",e.target.value.toUpperCase())} placeholder="e.g. OVEN, MIXER, CONVEYOR"
+            className={`input${errors.tag?" input--error":""}`}/>
+          {errors.tag&&<div style={{color:"var(--red)",fontSize:11,marginTop:3}}>{errors.tag}</div>}
+        </div>
+        <div style={{marginBottom:14}}>
+          <label style={{fontSize:11,color:"var(--t3)",display:"block",marginBottom:5,fontWeight:600}}>Root Cause <span style={{color:"var(--red)"}}>*</span></label>
+          <textarea value={form.cause} onChange={e=>set("cause",e.target.value)} rows={3}
+            placeholder="What causes this issue…" className={`input${errors.cause?" input--error":""}`} style={{resize:"vertical"}}/>
+          {errors.cause&&<div style={{color:"var(--red)",fontSize:11,marginTop:3}}>{errors.cause}</div>}
+        </div>
+        <div style={{marginBottom:14}}>
+          <label style={{fontSize:11,color:"var(--t3)",display:"block",marginBottom:5,fontWeight:600}}>Corrective Steps <span style={{color:"var(--red)"}}>*</span> <span style={{fontWeight:400,color:"var(--t4)"}}>(one per line)</span></label>
+          <textarea value={stepInput} onChange={e=>setStepInput(e.target.value)} rows={6}
+            placeholder={"Step 1\nStep 2\nStep 3"} className={`input${errors.steps?" input--error":""}`} style={{resize:"vertical",fontFamily:"inherit"}}/>
+          {errors.steps&&<div style={{color:"var(--red)",fontSize:11,marginTop:3}}>{errors.steps}</div>}
+        </div>
+        <div style={{display:"flex",gap:10,alignItems:"flex-start",marginBottom:14}}>
+          <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",userSelect:"none"}}>
+            <input type="checkbox" checked={form.escalate} onChange={e=>set("escalate",e.target.checked)}
+              style={{width:16,height:16,accentColor:"var(--acc)"}}/>
+            <span style={{fontSize:12,color:"var(--t2)",fontWeight:600}}>This issue can be escalated</span>
+          </label>
+        </div>
+        {form.escalate&&(
+          <div style={{marginBottom:14}}>
+            <label style={{fontSize:11,color:"var(--t3)",display:"block",marginBottom:5,fontWeight:600}}>Escalation Note</label>
+            <textarea value={form.escalateNote||""} onChange={e=>set("escalateNote",e.target.value)} rows={2}
+              placeholder="When to escalate and to whom…" className="input" style={{resize:"vertical"}}/>
+          </div>
+        )}
+        <div style={{display:"flex",gap:8,marginTop:4}}>
+          <button className="btn btn--amber" onClick={handleSubmit}>💾 Save Issue</button>
+          <button className="btn btn--ghost" onClick={onCancel}>Cancel</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SettingsForm({escalationEmail, saveEscalation, currentPin, savePin, onBack}) {
+  const [email,setEmail]=useState(escalationEmail||"");
+  const [pin,setPin]=useState("");
+  const [pin2,setPin2]=useState("");
+  const [emailSaved,setEmailSaved]=useState(false);
+  const [pinSaved,setPinSaved]=useState(false);
+  const [pinErr,setPinErr]=useState("");
+
+  const handleEmailSave = () => { saveEscalation(email.trim()); setEmailSaved(true); setTimeout(()=>setEmailSaved(false),2000); };
+  const handlePinSave = () => {
+    if(pin.length<4){ setPinErr("PIN must be at least 4 characters"); return; }
+    if(pin!==pin2){ setPinErr("PINs do not match"); return; }
+    savePin(pin); setPinErr(""); setPinSaved(true); setPin(""); setPin2("");
+    setTimeout(()=>setPinSaved(false),2000);
+  };
+
+  return (
+    <div style={{padding:"16px 20px",maxWidth:500,margin:"0 auto"}}>
+      <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:20}}>
+        <button className="btn btn--ghost" onClick={onBack}>← Back</button>
+        <h2 style={{fontSize:16,fontWeight:800}}>Settings</h2>
+      </div>
+      {/* Escalation email */}
+      <div style={{background:"var(--bg-card)",border:"1px solid var(--border)",borderRadius:12,padding:20,marginBottom:14}}>
+        <div style={{fontSize:12,fontWeight:800,color:"var(--t2)",marginBottom:12}}>📧 Global Escalation Email</div>
+        <input value={email} onChange={e=>setEmail(e.target.value)} placeholder="escalation@fgfbrands.com"
+          className="input" style={{marginBottom:10}}/>
+        <button className="btn btn--amber" onClick={handleEmailSave}>
+          {emailSaved?"✅ Saved!":"Save Email"}
+        </button>
+      </div>
+      {/* Change PIN */}
+      <div style={{background:"var(--bg-card)",border:"1px solid var(--border)",borderRadius:12,padding:20}}>
+        <div style={{fontSize:12,fontWeight:800,color:"var(--t2)",marginBottom:12}}>🔐 Change Admin PIN</div>
+        <input type="password" value={pin} onChange={e=>setPin(e.target.value)} placeholder="New PIN"
+          className="input" style={{marginBottom:8}}/>
+        <input type="password" value={pin2} onChange={e=>setPin2(e.target.value)} placeholder="Confirm new PIN"
+          className="input" style={{marginBottom:pinErr?4:10}}/>
+        {pinErr&&<div style={{color:"var(--red)",fontSize:11,marginBottom:8}}>{pinErr}</div>}
+        <button className="btn btn--amber" onClick={handlePinSave}>
+          {pinSaved?"✅ PIN Updated!":"Update PIN"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── PIN GATE ─────────────────────────────────────────────────────────────────
+function PinGate({correctPin, onUnlock}) {
+  const [val,setVal]=useState(""); const [err,setErr]=useState(false); const [errKey,setErrKey]=useState(0);
+  const ref=useRef(null);
+  useEffect(()=>ref.current?.focus(),[]);
+  const attempt = () => {
+    if(val===correctPin){ onUnlock(); }
+    else{ setErr(true); setErrKey(k=>k+1); setVal(""); setTimeout(()=>setErr(false),1000); }
+  };
+  return (
+    <div style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:"60vh",padding:20}}>
+      <div className="modal" style={{background:"var(--bg-card)",border:"1px solid var(--border)",borderRadius:16,padding:32,width:"min(360px,90vw)",textAlign:"center"}}>
+        <div style={{fontSize:36,marginBottom:12}}>🔐</div>
+        <div style={{fontSize:18,fontWeight:800,marginBottom:4}}>Admin Access</div>
+        <div style={{fontSize:12,color:"var(--t3)",marginBottom:24}}>Enter PIN to continue</div>
+        <input key={`pin-${errKey}`} ref={ref} type="password" value={val} onChange={e=>setVal(e.target.value)}
+          placeholder="PIN" className={`input${err?" input--error":""}`}
+          style={{textAlign:"center",fontSize:20,letterSpacing:"0.3em",marginBottom:12}}
+          onKeyDown={e=>{if(e.key==="Enter")attempt();}}/>
+        {err&&<div style={{color:"var(--red)",fontSize:12,marginBottom:8,fontWeight:600}}>Incorrect PIN</div>}
+        <button className="btn btn--amber btn--full" onClick={attempt}>Unlock →</button>
+      </div>
+    </div>
+  );
+}
+
+// ─── MAIN APP ─────────────────────────────────────────────────────────────────
+function App() {
+  const { records, addRecord } = useRecords();
+  const { issues, saveIssues } = useIssues();
+  const { guides, saveGuide, removeGuide } = useGuides();
+
+  const [escalationEmail, setEscalationEmail] = useState(()=>store.get(ESC_KEY)||"");
+  const [adminPin, setAdminPin] = useState(()=>store.get(PIN_KEY)||DEFAULT_PIN);
+  const [tab, setTab] = useState("home"); // home | analytics | admin
+  const [adminUnlocked, setAdminUnlocked] = useState(false);
+
+  const [search, setSearch] = useState("");
+  const [filterLine, setFilterLine] = useState("All");
+  const [filterSev, setFilterSev]   = useState("All");
+  const [filterCat, setFilterCat]   = useState("All");
+
+  const [selectedIssue, setSelectedIssue] = useState(null);
+  const [checkedSteps, setCheckedSteps]   = useState(new Set());
+  const [isClosed, setIsClosed]           = useState(false);
+  const [closedInfo, setClosedInfo]       = useState(null);
+  const [toast, setToast]                 = useState(null);
+
+  const elapsed = useTimer(!!selectedIssue&&!isClosed);
+
+  const saveEscalation = email => { setEscalationEmail(email); store.set(ESC_KEY,email); };
+  const savePinFn      = pin   => { setAdminPin(pin); store.set(PIN_KEY,pin); };
+
+  const logCounts = useMemo(()=>{
+    const m={}; records.forEach(r=>{ m[r.issueId]=(m[r.issueId]||0)+1; }); return m;
+  },[records]);
+
+  const lines = useMemo(()=>["All",...new Set(issues.map(i=>i.line))],[issues]);
+
+  const filtered = useMemo(()=>{
+    const q=search.toLowerCase().trim();
+    return issues.filter(issue=>{
+      if(filterLine!=="All"&&issue.line!==filterLine) return false;
+      if(filterSev!=="All"&&issue.severity!==filterSev) return false;
+      if(filterCat!=="All"&&issue.category!==filterCat) return false;
+      if(!q) return true;
+      return issue.symptom.toLowerCase().includes(q)||
+             issue.cause.toLowerCase().includes(q)||
+             issue.tag.toLowerCase().includes(q)||
+             (issue.keywords||[]).some(k=>k.includes(q));
+    });
+  },[issues,search,filterLine,filterSev,filterCat]);
+
+  const openIssue = issue => {
+    setSelectedIssue(issue); setCheckedSteps(new Set()); setIsClosed(false); setClosedInfo(null);
+  };
+  const closePanel = () => { setSelectedIssue(null); setCheckedSteps(new Set()); setIsClosed(false); setClosedInfo(null); };
+
+  const toggleStep = i => {
+    setCheckedSteps(prev=>{ const n=new Set(prev); n.has(i)?n.delete(i):n.add(i); return n; });
+  };
+
+  const handleSubmit = ({outcome,operator,sku,notes,timeToFix}) => {
+    const rec={id:uid(),issueId:selectedIssue.id,symptom:selectedIssue.symptom,tag:selectedIssue.tag,
+      line:selectedIssue.line,severity:selectedIssue.severity,category:selectedIssue.category,
+      operator,sku,notes,timeToFix,outcome,timestamp:Date.now()};
+    addRecord(rec);
+    setIsClosed(true); setClosedInfo({outcome,operator,sku,timeToFix});
+    setToast({outcome,symptom:selectedIssue.symptom});
+  };
+
+  return (
+    <>
+      <style dangerouslySetInnerHTML={{__html:CSS}}/>
+
+      {/* HEADER */}
+      <header className="app-header">
+        <div style={{maxWidth:1200,margin:"0 auto",padding:"10px 16px",display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
+          {/* FGF Logo area */}
+          <div style={{display:"flex",alignItems:"center",gap:10}}>
+            <div style={{background:"linear-gradient(135deg,#c8102e,#a00d24)",borderRadius:8,padding:"4px 10px",fontWeight:900,fontSize:13,color:"#fff",letterSpacing:".06em",boxShadow:"0 2px 10px rgba(200,16,46,.3)"}}>FGF</div>
+            <div>
+              <div style={{fontSize:14,fontWeight:800,color:"var(--t1)",lineHeight:1.2}}>CRE Troubleshoot Matrix</div>
+              <div style={{fontSize:10,color:"var(--t4)",fontWeight:500}}>{PLANT_NAME} · v{APP_VER}</div>
+            </div>
+          </div>
+
+          {/* Nav */}
+          <nav style={{display:"flex",gap:4,marginLeft:"auto"}}>
+            {[["home","🏠 Issues"],["analytics","📊 Analytics"],["admin","⚙ Admin"]].map(([id,label])=>(
+              <button key={id} className={`nav-tab${tab===id?" active":""}`}
+                onClick={()=>{ setTab(id); if(id==="admin"&&!adminUnlocked){}; }}>
+                {label}
+              </button>
+            ))}
+          </nav>
+        </div>
+      </header>
+
+      {/* CONTENT */}
+      <main style={{minHeight:"calc(100vh - 56px)"}}>
+
+        {/* ── HOME TAB ── */}
+        {tab==="home"&&(
+          <div style={{maxWidth:1200,margin:"0 auto",padding:"14px 16px"}}>
+            {/* Search + filters */}
+            <div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap",alignItems:"center"}}>
+              <div className="search-wrap" style={{flex:"1 1 200px",minWidth:180}}>
+                <span className="search-icon">🔍</span>
+                <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search issues…"
+                  className="input" style={{paddingLeft:36,paddingRight:search?32:12}}/>
+                {search&&<button className="search-clear" onClick={()=>setSearch("")}>×</button>}
+              </div>
+              <select value={filterLine} onChange={e=>setFilterLine(e.target.value)} className="input" style={{width:"auto",padding:"9px 12px",fontSize:12}}>
+                {lines.map(l=><option key={l}>{l}</option>)}
+              </select>
+              <select value={filterSev} onChange={e=>setFilterSev(e.target.value)} className="input" style={{width:"auto",padding:"9px 12px",fontSize:12}}>
+                <option value="All">All Severity</option>
+                <option value="critical">Critical</option>
+                <option value="warning">Warning</option>
+                <option value="advisory">Advisory</option>
+              </select>
+              <select value={filterCat} onChange={e=>setFilterCat(e.target.value)} className="input" style={{width:"auto",padding:"9px 12px",fontSize:12}}>
+                <option value="All">All Categories</option>
+                <option value="equipment">Equipment</option>
+                <option value="quality">Quality</option>
+                <option value="safety">Safety</option>
+              </select>
+              <span style={{fontSize:11,color:"var(--t4)"}}>{filtered.length} / {issues.length}</span>
+            </div>
+            {filtered.length===0?(
+              <div style={{textAlign:"center",padding:"60px 20px",color:"var(--t4)"}}>
+                <div style={{fontSize:40,marginBottom:12}}>🔍</div>
+                <div style={{fontSize:16,fontWeight:600,color:"var(--t3)"}}>No issues match your search</div>
+              </div>
+            ):(
+              <div className="card-grid">
+                {filtered.map(issue=>(
+                  <IssueCard key={issue.id} issue={issue}
+                    logCount={logCounts[issue.id]||0}
+                    hasGuide={!!guides[issue.id]}
+                    onClick={()=>openIssue(issue)}/>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── ANALYTICS TAB ── */}
+        {tab==="analytics"&&<AnalyticsTab records={records} issues={issues}/>}
+
+        {/* ── ADMIN TAB ── */}
+        {tab==="admin"&&(
+          adminUnlocked
+            ? <AdminPanel issues={issues} saveIssues={saveIssues}
+                escalationEmail={escalationEmail} saveEscalation={saveEscalation}
+                currentPin={adminPin} savePin={savePinFn}/>
+            : <PinGate correctPin={adminPin} onUnlock={()=>setAdminUnlocked(true)}/>
+        )}
+      </main>
+
+      {/* ── DETAIL PANEL ── */}
+      {selectedIssue&&(
+        <DetailPanel
+          issue={selectedIssue} elapsed={elapsed}
+          steps={checkedSteps} isClosed={isClosed} closedInfo={closedInfo}
+          guideUrl={guides[selectedIssue.id]||""}
+          onToggleStep={toggleStep} onSubmit={handleSubmit} onClose={closePanel}
+          onSaveGuide={saveGuide} onRemoveGuide={removeGuide}
+          escalationEmail={escalationEmail}/>
+      )}
+
+      {/* ── TOAST ── */}
+      {toast&&<Toast toast={toast} onDone={()=>setToast(null)}/>}
+    </>
+  );
+}
+
+const root = ReactDOM.createRoot(document.getElementById("root"));
+root.render(<App/>);
+  </script>
+</body>
+</html>
