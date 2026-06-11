@@ -626,20 +626,20 @@ const IssueCard = memo(({issue, logCount, hasGuide, onClick}) => (
 function DetailPanel({issue, elapsed, steps, isClosed, closedInfo, guideUrl, onToggleStep, onSubmit, onClose, onSaveGuide, onRemoveGuide, escalationEmail, adminUnlocked}) {
   const opRef=useRef(null); const signOffRef=useRef(null);
   const [opName,setOpName]=useState(""); const [sku,setSku]=useState("");
-  const [notes,setNotes]=useState(""); const [opErr,setOpErr]=useState(false);
-  const [errKey,setErrKey]=useState(0);
+  const [notes,setNotes]=useState(""); const [videoUrl,setVideoUrl]=useState("");
+  const [opErr,setOpErr]=useState(false); const [errKey,setErrKey]=useState(0);
 
   const totalSteps=issue.steps.length; const doneCount=steps.size;
   const pct=totalSteps>0?(doneCount/totalSteps)*100:0; const allDone=doneCount>=totalSteps;
 
   useEscClose(onClose);
   useEffect(()=>{ if(allDone&&!isClosed&&signOffRef.current){ signOffRef.current.scrollIntoView({behavior:"smooth",block:"nearest"}); setTimeout(()=>opRef.current?.focus(),350); } },[allDone]);
-  useEffect(()=>{ setOpName(""); setSku(""); setNotes(""); setOpErr(false); },[issue.id]);
+  useEffect(()=>{ setOpName(""); setSku(""); setNotes(""); setVideoUrl(""); setOpErr(false); },[issue.id]);
 
   const handleSubmit = outcome => {
     if(!opName.trim()){ setOpErr(true); setErrKey(k=>k+1); opRef.current?.focus(); return; }
     const skuVal=sku.trim()?sku.trim().toUpperCase():"N/A";
-    onSubmit({outcome, operator:opName.trim(), sku:skuVal, notes:notes.trim(), timeToFix:fmtT(elapsed)});
+    onSubmit({outcome, operator:opName.trim(), sku:skuVal, notes:notes.trim(), videoUrl:videoUrl.trim(), timeToFix:fmtT(elapsed)});
     if(outcome==="escalated"&&escalationEmail&&escalationEmail.trim()){
       const ejsKey=store.get(EJS_KEY_KEY);
       const ejsService=store.get(EJS_SERVICE_KEY);
@@ -796,11 +796,18 @@ function DetailPanel({issue, elapsed, steps, isClosed, closedInfo, guideUrl, onT
                 </div>
                 <div>
                   <label style={{fontSize:11,color:"var(--t3)",display:"block",marginBottom:5,fontWeight:600}}>SKU / Product</label>
-                  <input value={sku} onChange={e=>setSku(e.target.value)} placeholder="e.g. CRE-WB100" className="input"/>
+                  <input value={sku} onChange={e=>setSku(e.target.value)} placeholder="e.g. 82" className="input"/>
                 </div>
                 <div>
                   <label style={{fontSize:11,color:"var(--t3)",display:"block",marginBottom:5,fontWeight:600}}>Notes <span style={{color:"var(--t4)",fontWeight:400}}>(optional)</span></label>
                   <textarea value={notes} onChange={e=>setNotes(e.target.value)} rows={3} placeholder="Observations, workarounds…" className="input" style={{resize:"vertical"}}/>
+                </div>
+                <div style={{background:"rgba(239,68,68,.04)",border:"1px solid rgba(239,68,68,.18)",borderRadius:8,padding:"10px 12px"}}>
+                  <label style={{fontSize:11,color:"var(--red)",display:"block",marginBottom:5,fontWeight:700}}>📹 Issue Video Link <span style={{color:"var(--t4)",fontWeight:400}}>(if escalating)</span></label>
+                  <input value={videoUrl} onChange={e=>setVideoUrl(e.target.value)}
+                    placeholder="Paste Google Drive / OneDrive / YouTube link…"
+                    className="input" style={{marginBottom:0}}/>
+                  <div style={{fontSize:10,color:"var(--t4)",marginTop:5}}>Record the issue on your phone → share to Google Drive → paste the link here</div>
                 </div>
                 {escalationEmail&&escalationEmail.trim()&&(
                   <div style={{background:"rgba(26,122,106,.06)",border:"1px solid rgba(26,122,106,.2)",borderRadius:8,padding:"10px 12px"}}>
@@ -1012,7 +1019,7 @@ function AnalyticsTab({records, issues}) {
             <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
               <thead>
                 <tr style={{borderBottom:"1px solid var(--border)"}}>
-                  {["Date","Time","Symptom","Tag","Line","SKU","Operator","Time to Fix","Outcome"].map(h=>(
+                  {["Date","Time","Symptom","Tag","Line","SKU","Operator","Time to Fix","Outcome","Video"].map(h=>(
                     <th key={h} style={{padding:"6px 10px",textAlign:"left",color:"var(--t4)",fontWeight:700,fontSize:10,letterSpacing:".06em",whiteSpace:"nowrap"}}>{h}</th>
                   ))}
                 </tr>
@@ -1032,6 +1039,14 @@ function AnalyticsTab({records, issues}) {
                       <span style={{background:r.outcome==="resolved"?"rgba(34,197,94,.12)":"rgba(245,158,11,.12)",color:r.outcome==="resolved"?"#22c55e":"#f59e0b",border:`1px solid ${r.outcome==="resolved"?"rgba(34,197,94,.3)":"rgba(245,158,11,.3)"}`,borderRadius:4,fontSize:10,fontWeight:700,padding:"2px 7px"}}>
                         {r.outcome==="resolved"?"✅ Resolved":"🔔 Escalated"}
                       </span>
+                    </td>
+                    <td style={{padding:"8px 10px"}}>
+                      {r.videoUrl?(
+                        <a href={r.videoUrl} target="_blank" rel="noopener noreferrer"
+                          style={{display:"inline-flex",alignItems:"center",gap:4,background:"rgba(239,68,68,.08)",border:"1px solid rgba(239,68,68,.22)",borderRadius:5,padding:"3px 8px",color:"var(--red)",fontSize:11,fontWeight:700,textDecoration:"none",whiteSpace:"nowrap"}}>
+                          📹 Watch
+                        </a>
+                      ):<span style={{color:"var(--t5)",fontSize:11}}>—</span>}
                     </td>
                   </tr>
                 ))}
@@ -1453,10 +1468,10 @@ function App() {
     setCheckedSteps(prev=>{ const n=new Set(prev); n.has(i)?n.delete(i):n.add(i); return n; });
   };
 
-  const handleSubmit = ({outcome,operator,sku,notes,timeToFix}) => {
+  const handleSubmit = ({outcome,operator,sku,notes,videoUrl,timeToFix}) => {
     const rec={id:uid(),issueId:selectedIssue.id,symptom:selectedIssue.symptom,tag:selectedIssue.tag,
       line:selectedIssue.line,severity:selectedIssue.severity,category:selectedIssue.category,
-      operator,sku,notes,timeToFix,outcome,timestamp:Date.now()};
+      operator,sku,notes,videoUrl:videoUrl||"",timeToFix,outcome,timestamp:Date.now()};
     addRecord(rec);
     setIsClosed(true); setClosedInfo({outcome,operator,sku,timeToFix});
     setToast({outcome,symptom:selectedIssue.symptom});
