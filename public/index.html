@@ -39,6 +39,7 @@ const TAG_COLORS = {
   MIXER:"#f97316", OVEN:"#ef4444", DIVIDER:"#f59e0b", MOULDER:"#f97316",
   PROOFER:"#22c55e", SLICER:"#f59e0b", WRAPPER:"#3b82f6", CONVEYOR:"#64748b",
   "METAL DETECTOR":"#a78bfa", QUALITY:"#22c55e", SAFETY:"#ef4444", CODER:"#94a3b8",
+  "TAPE MACHINE":"#06b6d4",
 };
 
 // ─── DEFAULT ISSUES ──────────────────────────────────────────────────────────
@@ -386,6 +387,41 @@ const DEFAULT_ISSUES = [
     ],
     escalate:true,
     escalateNote:"Do NOT release product without a legible, correct date code. Hold all affected product for QA inspection and re-coding if possible.",
+  },
+  // ── TAPE MACHINE ──
+  {
+    id:"tm1", line:"All Lines", category:"equipment", severity:"warning", tag:"TAPE MACHINE",
+    symptom:"Case is NOT closing properly — flaps not sealing",
+    keywords:["tape machine","case","closing","flaps","rollers","side rollers","seal","tape","gap"],
+    cause:"Side rollers are set too far apart — insufficient pressure on the flaps, causing the tape not to adhere properly.",
+    steps:[
+      "Stop the tape machine.",
+      "Locate the side roller adjustment on both the left and right sides of the tape machine.",
+      "Move both rollers inward equally to increase pressure on the case flaps.",
+      "Ensure both rollers are at the same position (left and right must be symmetric).",
+      "Run a test case through and inspect the seal — flaps must have no gap in between.",
+      "Confirm tape is applied equally across both left and right flaps.",
+      "Adjust in small increments until flaps close with no gap and tape holds firmly.",
+    ],
+    escalate:false,
+    escalateNote:"",
+  },
+  {
+    id:"tm2", line:"All Lines", category:"equipment", severity:"warning", tag:"TAPE MACHINE",
+    symptom:"Tape machine head is loose — tape not applying correctly",
+    keywords:["tape machine","head","loose","tape","not applying","tape head","maintenance"],
+    cause:"Tape machine head is not set correctly — mounting may be loose or worn, causing misalignment with the case.",
+    steps:[
+      "Stop the tape machine immediately.",
+      "Visually inspect the tape machine head for visible looseness or misalignment.",
+      "Do NOT attempt to tighten or adjust the tape head without Maintenance approval.",
+      "Inform the Line Lead (LL) or Shift Lead (SL) of the issue.",
+      "Contact Maintenance to inspect and tighten the tape machine head to fit properly.",
+      "Do not resume production until Maintenance has confirmed the head is secure.",
+      "Run 3 test cases after repair to confirm tape is applying correctly.",
+    ],
+    escalate:true,
+    escalateNote:"Contact Maintenance immediately — do not attempt to run the machine with a loose tape head. Notify LL or SL.",
   },
 ];
 
@@ -1151,7 +1187,7 @@ function AdminPanel({issues, saveIssues, escalationEmail, saveEscalation, curren
               <div style={{fontSize:13,fontWeight:700,color:"var(--t1)"}}>{issue.symptom}</div>
               <div style={{fontSize:11,color:"var(--t4)",marginTop:2}}>{issue.steps.length} steps · {issue.category}</div>
             </div>
-            <div style={{display:"flex",gap:6"}}>
+            <div style={{display:"flex",gap:6}}>
               <button className="btn btn--blue" style={{padding:"6px 12px",fontSize:12}} onClick={()=>startEdit(issue)}>✏ Edit</button>
               <button className="btn btn--red" style={{padding:"6px 12px",fontSize:12}} onClick={()=>setConfirm(issue.id)}>🗑 Delete</button>
             </div>
