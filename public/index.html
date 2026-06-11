@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1"/>
   <title>CRE Troubleshoot Matrix — FGF Brands</title>
 </head>
-<body style="margin:0;background:#07090f">
+<body style="margin:0;background:#f0f4f8">
   <div id="root"></div>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
@@ -253,20 +253,23 @@ function getEmbedUrl(url) {
 
 // ─── GLOBAL CSS ───────────────────────────────────────────────────────────────
 const CSS = `
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800;1,9..40,400&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --bg:#07090f;--bg-card:#0c1120;--bg-panel:#0f1628;--bg-deep:#090c16;
-  --border:#1a2740;--border-mid:#253550;--border-hi:#304060;
-  --t1:#f1f5f9;--t2:#dde4ef;--t3:#8fa3bf;--t4:#4a5e7a;--t5:#1a2740;
-  --acc:#f59e0b;--acc-d:#d97706;--grn:#22c55e;--red:#ef4444;--blu:#3b82f6;--pur:#a78bfa;--ora:#f97316;
-  --fgf-red:#c8102e;--fgf-dark:#0a0e1a;
+  --bg:#f0f4f8;--bg-card:#ffffff;--bg-panel:#ffffff;--bg-deep:#f8fafc;
+  --border:#e2e8f0;--border-mid:#cbd5e1;--border-hi:#94a3b8;
+  --t1:#1e293b;--t2:#334155;--t3:#64748b;--t4:#94a3b8;--t5:#e2e8f0;
+  --acc:#f59e0b;--acc-d:#d97706;--grn:#16a34a;--red:#dc2626;--blu:#2563eb;--pur:#7c3aed;--ora:#ea580c;
+  --fgf-red:#c8102e;--fgf-dark:#0a1628;
   --card-rad:10px;--panel-rad:14px;
+  --shadow-sm:0 1px 3px rgba(0,0,0,.06),0 1px 8px rgba(0,0,0,.04);
+  --shadow-md:0 4px 16px rgba(0,0,0,.08),0 2px 6px rgba(0,0,0,.04);
+  --shadow-lg:0 10px 40px rgba(0,0,0,.1),0 4px 12px rgba(0,0,0,.06);
 }
 html,body{height:100%}
-body{background:var(--bg);color:var(--t1);font-family:'DM Sans',system-ui,sans-serif;-webkit-font-smoothing:antialiased;letter-spacing:.01em}
+body{background:var(--bg);color:var(--t1);font-family:'Inter',system-ui,sans-serif;-webkit-font-smoothing:antialiased;letter-spacing:.01em}
 ::-webkit-scrollbar{width:5px;height:5px}
-::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-track{background:var(--bg-deep)}
 ::-webkit-scrollbar-thumb{background:var(--border-mid);border-radius:99px}
 ::-webkit-scrollbar-thumb:hover{background:var(--border-hi)}
 
@@ -282,45 +285,47 @@ body{background:var(--bg);color:var(--t1);font-family:'DM Sans',system-ui,sans-s
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
 @keyframes cardIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
 
-.card{background:linear-gradient(160deg,#0d1426 0%,#0a1020 100%);border:1px solid var(--border);border-radius:var(--card-rad);cursor:pointer;display:flex;flex-direction:column;transition:transform 200ms cubic-bezier(.16,1,.3,1),box-shadow 200ms ease,border-color 200ms ease;user-select:none;animation:cardIn 250ms ease both;overflow:hidden;}
-.card:hover{transform:translateY(-3px);}
+.card{background:#ffffff;border:1px solid var(--border);border-radius:var(--card-rad);cursor:pointer;display:flex;flex-direction:column;transition:transform 200ms cubic-bezier(.16,1,.3,1),box-shadow 200ms ease,border-color 200ms ease;user-select:none;animation:cardIn 250ms ease both;overflow:hidden;box-shadow:var(--shadow-sm);}
+.card:hover{transform:translateY(-2px);box-shadow:var(--shadow-md);}
 .card:focus-visible{outline:2px solid var(--acc);outline-offset:3px;}
-.card.sev-critical{border-top:3px solid #ef4444;}
-.card.sev-critical:hover{box-shadow:0 12px 40px rgba(239,68,68,.18),0 0 0 1px rgba(239,68,68,.2);}
+.card.sev-critical{border-top:3px solid #dc2626;}
+.card.sev-critical:hover{box-shadow:0 8px 28px rgba(220,38,38,.12),0 2px 8px rgba(0,0,0,.06);}
 .card.sev-warning{border-top:3px solid #f59e0b;}
-.card.sev-warning:hover{box-shadow:0 12px 40px rgba(245,158,11,.15),0 0 0 1px rgba(245,158,11,.18);}
-.card.sev-advisory{border-top:3px solid #3b82f6;}
-.card.sev-advisory:hover{box-shadow:0 12px 40px rgba(59,130,246,.12),0 0 0 1px rgba(59,130,246,.15);}
+.card.sev-warning:hover{box-shadow:0 8px 28px rgba(245,158,11,.12),0 2px 8px rgba(0,0,0,.06);}
+.card.sev-advisory{border-top:3px solid #2563eb;}
+.card.sev-advisory:hover{box-shadow:0 8px 28px rgba(37,99,235,.10),0 2px 8px rgba(0,0,0,.06);}
 .card-body{padding:14px 16px;flex:1;}
-.card-footer{padding:10px 16px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:rgba(0,0,0,.25);}
+.card-footer{padding:10px 16px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:#f8fafc;}
 .card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px;}
 
 .step{border-radius:8px;transition:background 120ms ease;cursor:pointer;}
-.step:hover:not(.step--locked){background:rgba(255,255,255,.035);}
+.step:hover:not(.step--locked){background:rgba(0,0,0,.025);}
 .step--locked{cursor:default;}
 .check-pop{animation:popIn 220ms cubic-bezier(.16,1,.3,1) forwards;}
 
 .btn{cursor:pointer;border:none;border-radius:8px;font-family:inherit;font-weight:700;font-size:13px;padding:9px 16px;transition:all 150ms ease;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;letter-spacing:.01em;}
-.btn:hover{filter:brightness(1.12)}.btn:active{transform:scale(.97);}
+.btn:hover{filter:brightness(1.06)}.btn:active{transform:scale(.97);}
 .btn:focus-visible{outline:2px solid var(--acc);outline-offset:2px;}
-.btn--ghost{background:rgba(255,255,255,.04);border:1px solid var(--border-mid);color:var(--t3);}
-.btn--ghost:hover{background:rgba(255,255,255,.07);border-color:var(--border-hi);color:var(--t2);}
-.btn--green{background:var(--grn);color:#000;}
-.btn--amber{background:linear-gradient(135deg,#f59e0b,#d97706);color:#000;box-shadow:0 4px 14px rgba(245,158,11,.3);}
-.btn--amber:hover{box-shadow:0 6px 20px rgba(245,158,11,.4);}
-.btn--red{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.28);color:var(--red);}
-.btn--blue{background:rgba(59,130,246,.1);border:1px solid rgba(59,130,246,.28);color:#3b82f6;}
-.btn--fgf{background:linear-gradient(135deg,#c8102e,#a00d24);color:#fff;box-shadow:0 4px 14px rgba(200,16,46,.3);}
-.btn--fgf:hover{box-shadow:0 6px 20px rgba(200,16,46,.4);}
+.btn--ghost{background:var(--bg-card);border:1px solid var(--border-mid);color:var(--t2);}
+.btn--ghost:hover{background:var(--bg-deep);border-color:var(--border-hi);color:var(--t1);}
+.btn--green{background:#16a34a;color:#fff;}
+.btn--amber{background:linear-gradient(135deg,#f59e0b,#d97706);color:#000;box-shadow:0 4px 14px rgba(245,158,11,.28);}
+.btn--amber:hover{box-shadow:0 6px 20px rgba(245,158,11,.36);}
+.btn--red{background:#fef2f2;border:1px solid #fecaca;color:#dc2626;}
+.btn--blue{background:#eff6ff;border:1px solid #bfdbfe;color:#2563eb;}
+.btn--fgf{background:linear-gradient(135deg,#c8102e,#a00d24);color:#fff;box-shadow:0 4px 14px rgba(200,16,46,.28);}
+.btn--fgf:hover{box-shadow:0 6px 20px rgba(200,16,46,.38);}
 .btn--full{width:100%;justify-content:center;}
-.btn--cta{background:linear-gradient(135deg,#f59e0b,#f97316);color:#000;font-size:12px;padding:7px 14px;border-radius:7px;box-shadow:0 3px 12px rgba(245,158,11,.25);}
-.btn--cta:hover{box-shadow:0 6px 20px rgba(245,158,11,.4);}
+.btn--cta{background:linear-gradient(135deg,#f59e0b,#f97316);color:#000;font-size:12px;padding:7px 14px;border-radius:7px;font-weight:700;box-shadow:0 3px 12px rgba(245,158,11,.22);}
+.btn--cta:hover{box-shadow:0 6px 20px rgba(245,158,11,.36);}
 
 input,textarea{font-family:inherit;outline:none;}
-.input{width:100%;background:rgba(255,255,255,.04);border:1.5px solid var(--border-mid);border-radius:8px;padding:10px 12px;color:var(--t1);font-size:13px;transition:border-color 150ms,background 150ms;}
-.input:focus{border-color:var(--acc);background:rgba(245,158,11,.04);}
+.input{width:100%;background:#ffffff;border:1.5px solid var(--border-mid);border-radius:8px;padding:10px 12px;color:var(--t1);font-size:13px;transition:border-color 150ms,background 150ms,box-shadow 150ms;}
+.input:focus{border-color:var(--acc);background:#fffdf5;box-shadow:0 0 0 3px rgba(245,158,11,.1);}
 .input--error{border-color:var(--red)!important;animation:shakeErr 320ms ease;}
 select.input{cursor:pointer;}
+input[type=date]::-webkit-calendar-picker-indicator{cursor:pointer;opacity:.7;}
+input[type=date]::-webkit-calendar-picker-indicator:hover{opacity:1;}
 
 .panel{animation:slideInRight 300ms cubic-bezier(.16,1,.3,1) forwards;}
 .modal{animation:slideUpFade 280ms cubic-bezier(.16,1,.3,1) forwards;}
@@ -333,24 +338,24 @@ select.input{cursor:pointer;}
 
 .guide-iframe{width:100%;aspect-ratio:16/9;border:none;border-radius:10px;background:#000;}
 
-.app-header{background:linear-gradient(180deg,rgba(10,15,30,.98) 0%,rgba(8,12,22,.98) 100%);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);}
+.app-header{background:linear-gradient(180deg,#0a1628 0%,#0e1e38 100%);border-bottom:1px solid rgba(255,255,255,.08);position:sticky;top:0;z-index:100;backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);box-shadow:0 2px 16px rgba(0,0,0,.2);}
 
 .search-wrap{position:relative;}
 .search-icon{position:absolute;left:13px;top:50%;transform:translateY(-50%);color:var(--t4);pointer-events:none;}
 .search-clear{position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--t3);cursor:pointer;font-size:18px;line-height:1;padding:2px;border-radius:3px;}
 .search-clear:hover{color:var(--t1);}
 
-.nav-tab{cursor:pointer;padding:10px 18px;font-size:13px;font-weight:700;border-radius:8px;transition:all 150ms ease;border:none;background:transparent;color:var(--t4);letter-spacing:.02em;}
-.nav-tab:hover{color:var(--t2);background:rgba(255,255,255,.04);}
-.nav-tab.active{color:var(--acc);background:rgba(245,158,11,.1);}
+.nav-tab{cursor:pointer;padding:9px 16px;font-size:13px;font-weight:600;border-radius:8px;transition:all 150ms ease;border:none;background:transparent;color:rgba(255,255,255,.55);letter-spacing:.02em;}
+.nav-tab:hover{color:rgba(255,255,255,.9);background:rgba(255,255,255,.08);}
+.nav-tab.active{color:#ffffff;background:rgba(255,255,255,.14);box-shadow:inset 0 0 0 1px rgba(255,255,255,.12);}
 
-.kpi{background:linear-gradient(160deg,rgba(255,255,255,.04) 0%,rgba(255,255,255,.01) 100%);border:1px solid var(--border);border-radius:var(--card-rad);padding:14px 16px;}
+.kpi{background:#ffffff;border:1px solid var(--border);border-radius:var(--card-rad);padding:14px 16px;box-shadow:var(--shadow-sm);}
 
 .ring-circle{transition:stroke-dashoffset 400ms ease,stroke 400ms ease;}
 
 @media(min-width:700px){.panel-body{display:flex;}}
 .panel-col-left{flex:1;min-width:0;overflow-y:auto;padding:18px 20px;border-right:1px solid var(--border);}
-.panel-col-right{width:280px;flex-shrink:0;overflow-y:auto;padding:18px 20px;}
+.panel-col-right{width:280px;flex-shrink:0;overflow-y:auto;padding:18px 20px;background:#fafbfd;}
 @media(max-width:699px){.panel-col-left,.panel-col-right{padding:14px 16px;}.panel-col-right{width:100%;border-top:1px solid var(--border);}}
 `;
 
@@ -382,7 +387,7 @@ function useRecords() {
     ref.on('value', snap => {
       const val = snap.val();
       const arr = val ? Object.values(val) : [];
-      arr.sort((a, b) => b.ts - a.ts);
+      arr.sort((a, b) => b.timestamp - a.timestamp);
       setRecords(arr);
     });
     return () => ref.off();
@@ -404,15 +409,20 @@ function useIssues() {
 }
 
 function useGuides() {
-  const [guides, setGuides] = useState(() => {
-    try{ const r=store.get(GUIDES_KEY); return r?JSON.parse(r):{}; }catch{ return {}; }
-  });
-  const saveGuide = useCallback((id,url) => {
-    setGuides(prev => { const next={...prev,[id]:url}; store.set(GUIDES_KEY,JSON.stringify(next)); return next; });
-  },[]);
+  const [guides, setGuides] = useState({});
+  useEffect(() => {
+    const ref = db.ref('guides');
+    ref.on('value', snap => {
+      setGuides(snap.val() || {});
+    });
+    return () => ref.off();
+  }, []);
+  const saveGuide = useCallback((id, url) => {
+    db.ref('guides').child(id).set(url);
+  }, []);
   const removeGuide = useCallback(id => {
-    setGuides(prev => { const next={...prev}; delete next[id]; store.set(GUIDES_KEY,JSON.stringify(next)); return next; });
-  },[]);
+    db.ref('guides').child(id).remove();
+  }, []);
   return { guides, saveGuide, removeGuide };
 }
 
@@ -455,7 +465,7 @@ function ProgressRing({pct}) {
   const r=24, circ=2*Math.PI*r; const done=pct>=100; const c=done?"#22c55e":"#f59e0b";
   return (
     <svg width="58" height="58" viewBox="0 0 58 58" style={{flexShrink:0}}>
-      <circle cx="29" cy="29" r={r} fill="none" stroke="#1e2d47" strokeWidth="3.5"/>
+      <circle cx="29" cy="29" r={r} fill="none" stroke="rgba(255,255,255,.2)" strokeWidth="3.5"/>
       <circle cx="29" cy="29" r={r} fill="none" stroke={c} strokeWidth="3.5"
         strokeLinecap="round" strokeDasharray={circ} strokeDashoffset={circ-(pct/100)*circ}
         transform="rotate(-90 29 29)" className="ring-circle"/>
@@ -490,8 +500,8 @@ function Toast({toast, onDone}) {
 }
 
 // ─── VIDEO GUIDE SECTION ──────────────────────────────────────────────────────
-function VideoGuideSection({issueId, guideUrl, onSave, onRemove}) {
-  const [editing, setEditing] = useState(!guideUrl);
+function VideoGuideSection({issueId, guideUrl, onSave, onRemove, adminUnlocked}) {
+  const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(guideUrl||"");
   const embedUrl = getEmbedUrl(guideUrl||"");
   const isVideo = guideUrl&&/\.(mp4|webm|ogg|mov)(\?|$)/i.test(guideUrl);
@@ -505,13 +515,16 @@ function VideoGuideSection({issueId, guideUrl, onSave, onRemove}) {
     <div>
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
         <div style={{fontSize:10,fontWeight:800,color:"var(--t3)",letterSpacing:".07em"}}>🎬 VIDEO GUIDE</div>
-        {guideUrl&&!editing&&(
+        {guideUrl&&!editing&&adminUnlocked&&(
           <div style={{display:"flex",gap:6}}>
-            <button className="btn" style={{padding:"3px 9px",fontSize:11,background:"rgba(59,130,246,.1)",border:"1px solid rgba(59,130,246,.3)",color:"#3b82f6"}}
+            <button className="btn" style={{padding:"3px 9px",fontSize:11,background:"#eff6ff",border:"1px solid #bfdbfe",color:"#2563eb"}}
               onClick={()=>{setDraft(guideUrl);setEditing(true);}}>✏ Change</button>
-            <button className="btn" style={{padding:"3px 9px",fontSize:11,background:"rgba(239,68,68,.1)",border:"1px solid rgba(239,68,68,.3)",color:"var(--red)"}}
-              onClick={()=>{onRemove(issueId);setDraft("");setEditing(true);}}>× Remove</button>
+            <button className="btn" style={{padding:"3px 9px",fontSize:11,background:"#fef2f2",border:"1px solid #fecaca",color:"var(--red)"}}
+              onClick={()=>{onRemove(issueId);setDraft("");setEditing(false);}}>× Remove</button>
           </div>
+        )}
+        {guideUrl&&!editing&&!adminUnlocked&&(
+          <span style={{fontSize:10,color:"var(--t4)",display:"flex",alignItems:"center",gap:3}}>🔐 Admin only</span>
         )}
       </div>
       {guideUrl&&!editing&&(
@@ -521,7 +534,7 @@ function VideoGuideSection({issueId, guideUrl, onSave, onRemove}) {
           <video src={guideUrl} controls style={{width:"100%",borderRadius:8,maxHeight:240,background:"#000",display:"block"}}/>
         ):(
           <a href={guideUrl} target="_blank" rel="noopener noreferrer"
-            style={{display:"flex",alignItems:"center",gap:8,padding:"12px 14px",background:"rgba(59,130,246,.08)",border:"1px solid rgba(59,130,246,.25)",borderRadius:8,color:"#3b82f6",textDecoration:"none",fontSize:13,fontWeight:600}}>
+            style={{display:"flex",alignItems:"center",gap:8,padding:"12px 14px",background:"#eff6ff",border:"1px solid #bfdbfe",borderRadius:8,color:"#2563eb",textDecoration:"none",fontSize:13,fontWeight:600}}>
             <span style={{fontSize:18}}>🔗</span>
             <div>
               <div>Open Video Guide</div>
@@ -530,7 +543,7 @@ function VideoGuideSection({issueId, guideUrl, onSave, onRemove}) {
           </a>
         )
       )}
-      {editing&&(
+      {editing&&adminUnlocked&&(
         <div>
           <div style={{fontSize:11,color:"var(--t3)",marginBottom:6}}>Paste a YouTube, SharePoint, or direct video URL (.mp4)</div>
           <div style={{display:"flex",gap:6}}>
@@ -542,10 +555,16 @@ function VideoGuideSection({issueId, guideUrl, onSave, onRemove}) {
         </div>
       )}
       {!guideUrl&&!editing&&(
-        <button className="btn btn--ghost" onClick={()=>setEditing(true)}
-          style={{fontSize:12,width:"100%",justifyContent:"center",borderStyle:"dashed",borderColor:"var(--border-mid)"}}>
-          + Add Video Guide
-        </button>
+        adminUnlocked?(
+          <button className="btn btn--ghost" onClick={()=>setEditing(true)}
+            style={{fontSize:12,width:"100%",justifyContent:"center",borderStyle:"dashed",borderColor:"var(--border-mid)"}}>
+            + Add Video Guide
+          </button>
+        ):(
+          <div style={{fontSize:12,color:"var(--t4)",textAlign:"center",padding:"10px",border:"1px dashed var(--border-mid)",borderRadius:8}}>
+            🔐 Unlock Admin to add a video guide
+          </div>
+        )
       )}
     </div>
   );
@@ -588,7 +607,7 @@ const IssueCard = memo(({issue, logCount, hasGuide, onClick}) => (
 ));
 
 // ─── DETAIL PANEL ─────────────────────────────────────────────────────────────
-function DetailPanel({issue, elapsed, steps, isClosed, closedInfo, guideUrl, onToggleStep, onSubmit, onClose, onSaveGuide, onRemoveGuide, escalationEmail}) {
+function DetailPanel({issue, elapsed, steps, isClosed, closedInfo, guideUrl, onToggleStep, onSubmit, onClose, onSaveGuide, onRemoveGuide, escalationEmail, adminUnlocked}) {
   const opRef=useRef(null); const signOffRef=useRef(null);
   const [opName,setOpName]=useState(""); const [sku,setSku]=useState("");
   const [notes,setNotes]=useState(""); const [opErr,setOpErr]=useState(false);
@@ -659,8 +678,8 @@ function DetailPanel({issue, elapsed, steps, isClosed, closedInfo, guideUrl, onT
                 <p style={{fontSize:13,color:"var(--t2)",lineHeight:1.7,margin:0}}>{issue.cause}</p>
               </div>
               {/* Video */}
-              <div style={{background:"rgba(0,0,0,.25)",border:"1px solid var(--border)",borderRadius:10,padding:"12px 14px"}}>
-                <VideoGuideSection issueId={issue.id} guideUrl={guideUrl} onSave={onSaveGuide} onRemove={onRemoveGuide}/>
+              <div style={{background:"var(--bg-deep)",border:"1px solid var(--border)",borderRadius:10,padding:"12px 14px"}}>
+                <VideoGuideSection issueId={issue.id} guideUrl={guideUrl} onSave={onSaveGuide} onRemove={onRemoveGuide} adminUnlocked={adminUnlocked}/>
               </div>
               {/* Steps */}
               <div>
@@ -676,7 +695,7 @@ function DetailPanel({issue, elapsed, steps, isClosed, closedInfo, guideUrl, onT
                         onClick={()=>!locked&&onToggleStep(i)}
                         role={locked?"listitem":"checkbox"} aria-checked={done} tabIndex={locked?-1:0}
                         onKeyDown={e=>{if(!locked&&(e.key==="Enter"||e.key===" ")){e.preventDefault();onToggleStep(i);}}}
-                        style={{display:"flex",gap:10,padding:"11px 14px",background:done?"rgba(34,197,94,.07)":"rgba(255,255,255,.025)",border:`1px solid ${done?"rgba(34,197,94,.22)":"var(--border)"}`,borderRadius:8,transition:"all 180ms ease"}}>
+                        style={{display:"flex",gap:10,padding:"11px 14px",background:done?"#f0fdf4":"var(--bg-deep)",border:`1px solid ${done?"rgba(22,163,74,.22)":"var(--border)"}`,borderRadius:8,transition:"all 180ms ease"}}>
                         <div style={{width:24,height:24,borderRadius:"50%",flexShrink:0,background:done?"var(--grn)":"var(--bg-deep)",border:`2px solid ${done?"var(--grn)":"var(--border-mid)"}`,display:"flex",alignItems:"center",justifyContent:"center",transition:"all 200ms ease",fontSize:11,fontWeight:800,color:done?"#000":"var(--t4)"}}>
                           {done?<span className="check-pop">✓</span>:i+1}
                         </div>
@@ -710,7 +729,7 @@ function DetailPanel({issue, elapsed, steps, isClosed, closedInfo, guideUrl, onT
                 </div>
                 <div style={{display:"flex",flexDirection:"column",gap:6}}>
                   {[["👷 Operator",closedInfo.operator],["📦 SKU",closedInfo.sku],["⏱ Time",closedInfo.timeToFix],["📋 Outcome",closedInfo.outcome.toUpperCase()]].map(([l,v])=>(
-                    <div key={l} style={{background:"rgba(0,0,0,.3)",borderRadius:7,padding:"9px 12px",display:"flex",justifyContent:"space-between",alignItems:"center",border:"1px solid var(--border)"}}>
+                    <div key={l} style={{background:"var(--bg-deep)",borderRadius:7,padding:"9px 12px",display:"flex",justifyContent:"space-between",alignItems:"center",border:"1px solid var(--border)"}}>
                       <span style={{fontSize:11,color:"var(--t4)"}}>{l}</span>
                       <span style={{fontSize:12,fontWeight:700,color:"var(--t1)"}}>{v}</span>
                     </div>
@@ -754,9 +773,9 @@ function DetailPanel({issue, elapsed, steps, isClosed, closedInfo, guideUrl, onT
         </div>
 
         {/* Footer */}
-        <div style={{background:"rgba(0,0,0,.4)",borderTop:"1px solid var(--border)",padding:"10px 20px",display:"flex",gap:8,flexShrink:0}}>
+        <div style={{background:"var(--bg-deep)",borderTop:"1px solid var(--border)",padding:"10px 20px",display:"flex",gap:8,flexShrink:0}}>
           <button className="btn btn--ghost" style={{flex:1,justifyContent:"center"}} onClick={onClose}>
-            ← Close <span style={{fontSize:10,color:"var(--t5)",marginLeft:"auto"}}>ESC</span>
+            ← Close <span style={{fontSize:10,color:"var(--t4)",marginLeft:"auto"}}>ESC</span>
           </button>
         </div>
       </div>
@@ -817,13 +836,21 @@ function AnalyticsTab({records, issues}) {
   return (
     <div style={{padding:"16px 20px",maxWidth:960,margin:"0 auto"}}>
       {/* Date filter */}
-      <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:16,flexWrap:"wrap"}}>
-        <span style={{fontSize:12,color:"var(--t3)",fontWeight:600}}>Filter by date:</span>
-        <input type="date" value={from} onChange={e=>setFrom(e.target.value)} className="input" style={{width:160,padding:"7px 10px",fontSize:12}}/>
-        <span style={{color:"var(--t4)",fontSize:12}}>to</span>
-        <input type="date" value={to} onChange={e=>setTo(e.target.value)} className="input" style={{width:160,padding:"7px 10px",fontSize:12}}/>
-        {(from||to)&&<button className="btn btn--ghost" style={{fontSize:11,padding:"7px 12px"}} onClick={()=>{setFrom("");setTo("");}}>Clear</button>}
-        <span style={{fontSize:11,color:"var(--t4)",marginLeft:"auto"}}>{total} record{total!==1?"s":""} shown</span>
+      <div style={{background:"#ffffff",border:"1px solid var(--border)",borderRadius:10,padding:"12px 16px",marginBottom:16,display:"flex",gap:12,alignItems:"center",flexWrap:"wrap",boxShadow:"var(--shadow-sm)"}}>
+        <span style={{fontSize:12,color:"var(--t2)",fontWeight:700}}>📅 Date Range</span>
+        <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+          <div>
+            <label style={{fontSize:10,color:"var(--t3)",display:"block",marginBottom:3,fontWeight:600}}>FROM</label>
+            <input type="date" value={from} onChange={e=>setFrom(e.target.value)} className="input" style={{width:160,padding:"7px 10px",fontSize:12}}/>
+          </div>
+          <span style={{color:"var(--t4)",fontSize:12,paddingTop:16}}>→</span>
+          <div>
+            <label style={{fontSize:10,color:"var(--t3)",display:"block",marginBottom:3,fontWeight:600}}>TO</label>
+            <input type="date" value={to} onChange={e=>setTo(e.target.value)} className="input" style={{width:160,padding:"7px 10px",fontSize:12}}/>
+          </div>
+        </div>
+        {(from||to)&&<button className="btn btn--ghost" style={{fontSize:11,padding:"7px 12px",alignSelf:"flex-end"}} onClick={()=>{setFrom("");setTo("");}}>✕ Clear</button>}
+        <span style={{fontSize:11,color:"var(--t3)",marginLeft:"auto",background:"var(--bg-deep)",border:"1px solid var(--border)",borderRadius:6,padding:"4px 10px",fontWeight:600}}>{total} record{total!==1?"s":""}</span>
       </div>
 
       {/* KPI row */}
@@ -943,7 +970,7 @@ function AnalyticsTab({records, issues}) {
               </thead>
               <tbody>
                 {recent.map(r=>(
-                  <tr key={r.id} style={{borderBottom:"1px solid rgba(26,39,64,.5)"}}>
+                  <tr key={r.id} style={{borderBottom:"1px solid var(--border)"}}>
                     <td style={{padding:"8px 10px",color:"var(--t3)",whiteSpace:"nowrap"}}>{fmtDate(r.timestamp)}</td>
                     <td style={{padding:"8px 10px",color:"var(--t3)",whiteSpace:"nowrap"}}>{fmtTime(r.timestamp)}</td>
                     <td style={{padding:"8px 10px",color:"var(--t2)",maxWidth:220,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.symptom}</td>
@@ -969,10 +996,11 @@ function AnalyticsTab({records, issues}) {
 }
 
 // ─── ADMIN PANEL ──────────────────────────────────────────────────────────────
-function AdminPanel({issues, saveIssues, escalationEmail, saveEscalation, currentPin, savePin}) {
+function AdminPanel({issues, saveIssues, escalationEmail, saveEscalation, currentPin, savePin, onResetData}) {
   const [view,setView]=useState("list"); // list | add | edit | settings
   const [editTarget,setEditTarget]=useState(null);
   const [confirm,setConfirm]=useState(null);
+  const [resetConfirm,setResetConfirm]=useState(false);
 
   const startEdit = issue => { setEditTarget(issue); setView("edit"); };
   const startAdd  = ()    => { setEditTarget(null);  setView("add");  };
@@ -1001,10 +1029,11 @@ function AdminPanel({issues, saveIssues, escalationEmail, saveEscalation, curren
 
   return (
     <div style={{padding:"16px 20px",maxWidth:900,margin:"0 auto"}}>
-      <div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap"}}>
+      <div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap",alignItems:"center"}}>
         <button className="btn btn--amber" onClick={startAdd}>+ Add New Issue</button>
         <button className="btn btn--ghost" onClick={()=>setView("settings")}>⚙ Settings</button>
-        <span style={{marginLeft:"auto",fontSize:12,color:"var(--t4)",alignSelf:"center"}}>{issues.length} issues total</span>
+        <button className="btn btn--red" style={{marginLeft:"auto"}} onClick={()=>setResetConfirm(true)}>🗑 Reset All Data</button>
+        <span style={{fontSize:12,color:"var(--t4)"}}>{issues.length} issues</span>
       </div>
       <div style={{display:"flex",flexDirection:"column",gap:8}}>
         {issues.map(issue=>(
@@ -1024,14 +1053,28 @@ function AdminPanel({issues, saveIssues, escalationEmail, saveEscalation, curren
         ))}
       </div>
       {confirm&&(
-        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.7)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:300}}>
-          <div className="modal" style={{background:"var(--bg-panel)",border:"1px solid var(--border)",borderRadius:14,padding:24,width:"min(360px,90vw)",textAlign:"center"}}>
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.55)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:300}}>
+          <div className="modal" style={{background:"var(--bg-panel)",border:"1px solid var(--border)",borderRadius:14,padding:24,width:"min(360px,90vw)",textAlign:"center",boxShadow:"var(--shadow-lg)"}}>
             <div style={{fontSize:32,marginBottom:12}}>🗑</div>
-            <div style={{fontSize:15,fontWeight:700,marginBottom:8}}>Delete this issue?</div>
+            <div style={{fontSize:15,fontWeight:700,color:"var(--t1)",marginBottom:8}}>Delete this issue?</div>
             <div style={{fontSize:12,color:"var(--t3)",marginBottom:20}}>This cannot be undone.</div>
             <div style={{display:"flex",gap:8,justifyContent:"center"}}>
               <button className="btn btn--red" onClick={()=>handleDelete(confirm)}>Delete</button>
               <button className="btn btn--ghost" onClick={()=>setConfirm(null)}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {resetConfirm&&(
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.55)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:300}}>
+          <div className="modal" style={{background:"var(--bg-panel)",border:"1px solid #fecaca",borderRadius:14,padding:24,width:"min(380px,90vw)",textAlign:"center",boxShadow:"var(--shadow-lg)"}}>
+            <div style={{fontSize:36,marginBottom:12}}>⚠️</div>
+            <div style={{fontSize:16,fontWeight:800,color:"var(--red)",marginBottom:8}}>Reset All Analytics Data?</div>
+            <div style={{fontSize:13,color:"var(--t3)",marginBottom:6,lineHeight:1.6}}>This will permanently delete <strong>all issue logs</strong> from Firebase.</div>
+            <div style={{fontSize:12,color:"var(--t4)",marginBottom:20}}>Issue cards and video guides are not affected.</div>
+            <div style={{display:"flex",gap:8,justifyContent:"center"}}>
+              <button className="btn btn--red" style={{padding:"10px 20px"}} onClick={()=>{ onResetData(); setResetConfirm(false); }}>Yes, Delete All Logs</button>
+              <button className="btn btn--ghost" style={{padding:"10px 20px"}} onClick={()=>setResetConfirm(false)}>Cancel</button>
             </div>
           </div>
         </div>
@@ -1236,6 +1279,7 @@ function App() {
 
   const saveEscalation = email => { setEscalationEmail(email); store.set(ESC_KEY,email); };
   const savePinFn      = pin   => { setAdminPin(pin); store.set(PIN_KEY,pin); };
+  const resetData      = ()    => { db.ref('logs').remove(); };
 
   const logCounts = useMemo(()=>{
     const m={}; records.forEach(r=>{ m[r.issueId]=(m[r.issueId]||0)+1; }); return m;
@@ -1283,11 +1327,17 @@ function App() {
       <header className="app-header">
         <div style={{maxWidth:1200,margin:"0 auto",padding:"10px 16px",display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
           {/* FGF Logo area */}
-          <div style={{display:"flex",alignItems:"center",gap:10}}>
-            <div style={{background:"linear-gradient(135deg,#c8102e,#a00d24)",borderRadius:8,padding:"4px 10px",fontWeight:900,fontSize:13,color:"#fff",letterSpacing:".06em",boxShadow:"0 2px 10px rgba(200,16,46,.3)"}}>FGF</div>
+          <div style={{display:"flex",alignItems:"center",gap:12}}>
+            {/* FGF Brands logo replica */}
+            <div style={{display:"flex",flexDirection:"column",alignItems:"center",background:"#c8102e",borderRadius:6,padding:"5px 11px 4px",boxShadow:"0 2px 12px rgba(200,16,46,.45)",flexShrink:0}}>
+              <div style={{fontFamily:"'Inter',sans-serif",fontWeight:900,fontSize:15,color:"#fff",letterSpacing:".12em",lineHeight:1}}>FGF</div>
+              <div style={{fontFamily:"'Inter',sans-serif",fontWeight:500,fontSize:7,color:"rgba(255,255,255,.82)",letterSpacing:".22em",marginTop:2,textTransform:"uppercase"}}>BRANDS</div>
+            </div>
+            {/* Divider */}
+            <div style={{width:1,height:28,background:"rgba(255,255,255,.15)",flexShrink:0}}/>
             <div>
-              <div style={{fontSize:14,fontWeight:800,color:"var(--t1)",lineHeight:1.2}}>CRE Troubleshoot Matrix</div>
-              <div style={{fontSize:10,color:"var(--t4)",fontWeight:500}}>{PLANT_NAME} · v{APP_VER}</div>
+              <div style={{fontSize:13,fontWeight:700,color:"#ffffff",lineHeight:1.25,letterSpacing:".01em"}}>CRE Troubleshoot Matrix</div>
+              <div style={{fontSize:10,color:"rgba(255,255,255,.45)",fontWeight:400,marginTop:2}}>{PLANT_NAME} · v{APP_VER}</div>
             </div>
           </div>
 
@@ -1360,7 +1410,7 @@ function App() {
           adminUnlocked
             ? <AdminPanel issues={issues} saveIssues={saveIssues}
                 escalationEmail={escalationEmail} saveEscalation={saveEscalation}
-                currentPin={adminPin} savePin={savePinFn}/>
+                currentPin={adminPin} savePin={savePinFn} onResetData={resetData}/>
             : <PinGate correctPin={adminPin} onUnlock={()=>setAdminUnlocked(true)}/>
         )}
       </main>
@@ -1373,7 +1423,7 @@ function App() {
           guideUrl={guides[selectedIssue.id]||""}
           onToggleStep={toggleStep} onSubmit={handleSubmit} onClose={closePanel}
           onSaveGuide={saveGuide} onRemoveGuide={removeGuide}
-          escalationEmail={escalationEmail}/>
+          escalationEmail={escalationEmail} adminUnlocked={adminUnlocked}/>
       )}
 
       {/* ── TOAST ── */}
