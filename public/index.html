@@ -7,6 +7,8 @@
 </head>
 <body style="margin:0;background:#07090f">
   <div id="root"></div>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
   <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -36,357 +38,164 @@ const LINE_COLORS = {
 };
 
 const TAG_COLORS = {
-  MIXER:"#f97316", OVEN:"#ef4444", DIVIDER:"#f59e0b", MOULDER:"#f97316",
-  PROOFER:"#22c55e", SLICER:"#f59e0b", WRAPPER:"#3b82f6", CONVEYOR:"#64748b",
-  "METAL DETECTOR":"#a78bfa", QUALITY:"#22c55e", SAFETY:"#ef4444", CODER:"#94a3b8",
-  "TAPE MACHINE":"#06b6d4",
+  FANUC:"#ef4444", RETRACKER:"#f97316", "INFEED BELT":"#f59e0b",
+  SAFETY:"#ef4444", CONVEYOR:"#f97316", "AUTO/MAN":"#3b82f6",
+  SLICER:"#f59e0b", WEIGHT:"#22c55e", "TAPE MACHINE":"#06b6d4",
 };
 
 // ─── DEFAULT ISSUES ──────────────────────────────────────────────────────────
 const DEFAULT_ISSUES = [
-  // ── MIXER ──
   {
-    id:"m1", line:"All Lines", category:"equipment", severity:"warning", tag:"MIXER",
-    symptom:"Mixer not reaching target speed — dough under-mixed",
-    keywords:["mixer","speed","rpm","under-mixed","dough","slow"],
-    cause:"Drive belt worn or frequency inverter fault. Can also be caused by overloaded mixer bowl.",
+    id:"e1", line:"All Lines", category:"equipment", severity:"warning", tag:"RETRACKER",
+    symptom:"End slices getting into the packaging",
+    keywords:["end slices","packaging","retracking","conveyor","accumulation","jam"],
+    cause:"Slicer retracking conveyor not opening/closing properly — accumulation of slices building up underneath.",
     steps:[
-      "Stop the mixer and lock out / tag out before inspecting.",
-      "Check the mixer bowl — remove any excess dough or foreign material.",
-      "Inspect the drive belt for visible wear, cracks, or slippage.",
-      "Check the inverter display for fault codes — note any active alarms.",
-      "Reset the inverter fault if present (refer to inverter manual for reset procedure).",
-      "Restart the mixer at low speed and verify RPM climbs to target.",
-      "If RPM still does not reach target, contact Maintenance.",
+      "Check the retracking conveyor for slice accumulation underneath.",
+      "Stop the Slicer completely.",
+      "Clear the jam from the retracking conveyor area.",
+      "Confirm the retracking conveyor opens and closes freely.",
+      "Restart the Slicer and monitor the first 10 cycles.",
+    ],
+    escalate:false, escalateNote:"",
+  },
+  {
+    id:"e2", line:"All Lines", category:"equipment", severity:"critical", tag:"FANUC",
+    symptom:"FANUC not placing product on accumulation belt",
+    keywords:["fanuc","robot","accumulation","belt","not placing","glitch","connected","hmi","empty buffer"],
+    cause:"Accumulation conveyor is disconnected, or a communication glitch between the FANUC robot and the accumulation conveyor.",
+    steps:[
+      "Check the accumulation conveyor — confirm it is connected and running.",
+      "If not connected: stop the Slicer, reconnect the accumulation conveyor, then restart.",
+      "If connected: navigate to the FANUC HMI and press 'Empty Buffer'.",
+      "Stop and Start the FANUC robot from the FANUC HMI.",
+      "Monitor first several placements to confirm product lands correctly on the belt.",
     ],
     escalate:true,
-    escalateNote:"If drive belt is visibly damaged or inverter fault repeats, contact Maintenance immediately. Do not run under-mixed dough.",
+    escalateNote:"If FANUC continues to miss placements after empty buffer and robot restart, contact Line Lead (LL) or Shift Lead (SL) immediately.",
   },
   {
-    id:"m2", line:"All Lines", category:"equipment", severity:"critical", tag:"MIXER",
-    symptom:"Mixer E-stop triggered — will not restart",
-    keywords:["e-stop","estop","emergency stop","mixer","won't start","not starting"],
-    cause:"An emergency stop button is engaged, a safety guard is open, or a safety relay has tripped.",
+    id:"e3", line:"All Lines", category:"equipment", severity:"warning", tag:"INFEED BELT",
+    symptom:"Slicer infeed product belt tension issue — belt loose or alarm active",
+    keywords:["infeed","belt","tension","safety door","alarm","reset","fanuc","loaves","automatic"],
+    cause:"Safety door is open or has not been properly reset. The infeed belt tension is automatic — releases when door opens, tensions back when closed and reset.",
     steps:[
-      "Identify which E-stop button is pressed in — check all panels around the mixer.",
-      "Pull out the engaged E-stop button to release it.",
-      "Ensure all safety guards and access doors are fully closed and latched.",
-      "Navigate to the control panel and press 'RESET' to clear the safety relay.",
-      "Attempt to restart the mixer at low speed.",
-      "Monitor for 2–3 minutes to confirm stable operation.",
+      "Check that the safety door is fully closed.",
+      "Reset the safety door alarm from the slicer control panel.",
+      "Verify the infeed belt has re-tensioned automatically after the reset.",
+      "If alarm persists: open the safety door, close it firmly again.",
+      "Perform a second reset and confirm belt tension is restored.",
+      "If tension still does not recover, contact LL or SL.",
     ],
     escalate:true,
-    escalateNote:"Never bypass an E-stop or safety relay. If it trips again immediately, contact Maintenance — do not restart.",
+    escalateNote:"If two reset attempts do not restore belt tension, contact LL or SL. Do not run the slicer with an untensioned infeed belt.",
   },
-  // ── OVEN ──
   {
-    id:"o1", line:"All Lines", category:"equipment", severity:"critical", tag:"OVEN",
-    symptom:"Oven temperature alarm — zone deviation above or below setpoint",
-    keywords:["oven","temperature","alarm","zone","deviation","setpoint","too hot","too cold"],
-    cause:"Burner fault, thermocouple failure, or zone controller issue. Can also be caused by door seal failure causing heat loss.",
+    id:"e4", line:"All Lines", category:"equipment", severity:"critical", tag:"SAFETY",
+    symptom:"FANUC safety sensor not resetting — robot will not go into auto",
+    keywords:["fanuc","safety","sensor","reset","e-stop","door","yellow area","bins","loaves","not resetting"],
+    cause:"An E-stop is triggered, a door is open, or the yellow marked safety area is not clear of loaves or bins.",
     steps:[
-      "Note which zone is in alarm and the current vs setpoint temperature.",
-      "Check that the oven doors are fully closed and seals are intact.",
-      "Navigate to the oven HMI and acknowledge the alarm.",
-      "If temperature is below setpoint: check burner pilot light and ignition status.",
-      "If temperature is above setpoint: check that the zone valve/damper is responding.",
-      "Allow 5 minutes for temperature to stabilize after reset.",
-      "If zone does not recover, contact Maintenance and hold all product from the affected zone.",
+      "Check every E-stop button around the FANUC cell — pull out any that are pressed in.",
+      "Ensure all doors on the FANUC cell are properly closed and latched.",
+      "Inspect the yellow marked floor area — confirm it is free of loaves, bins, and obstructions.",
+      "Attempt to reset the safety sensor from the FANUC HMI or operator panel.",
+      "Confirm the FANUC robot enters auto mode and resumes cycle.",
     ],
     escalate:true,
-    escalateNote:"Hold all product baked during the temperature deviation for QA inspection. Contact Maintenance if zone does not stabilize within 10 minutes.",
+    escalateNote:"If safety sensor still will not reset after all E-stops are cleared, contact LL or SL immediately. Never bypass the safety system.",
   },
   {
-    id:"o2", line:"All Lines", category:"quality", severity:"warning", tag:"OVEN",
-    symptom:"Product under-baked — pale crust, soft centre",
-    keywords:["under-baked","pale","soft","light crust","raw","underbaked","colour"],
-    cause:"Oven temperature too low, belt speed too fast, or product loading density too high reducing heat penetration.",
+    id:"e5", line:"All Lines", category:"equipment", severity:"warning", tag:"CONVEYOR",
+    symptom:"63′ conveyor slipping, jerking or tracking off-centre",
+    keywords:["63","conveyor","slipping","jerking","tracking","rollers","buildup","probe","fanuc-3","sanitation"],
+    cause:"Product buildup on the drive roller causing slipping/jerking, or the tracking probe near FANUC-3 is not correctly positioned.",
     steps:[
-      "Check oven zone temperatures against the current recipe setpoints on the HMI.",
-      "If any zone is below setpoint, acknowledge and wait for recovery before continuing.",
-      "Verify the oven belt speed matches the active recipe — reduce by 1–2% if bake colour is consistently light.",
-      "Check product spacing on the belt — crowded loading reduces air circulation.",
-      "Run 10 units through and assess bake colour against the golden standard sample.",
-      "Adjust and re-run until colour and internal texture meet spec.",
-      "Document any parameter changes on the shift log.",
-    ],
-    escalate:false,
-    escalateNote:"",
-  },
-  {
-    id:"o3", line:"All Lines", category:"quality", severity:"warning", tag:"OVEN",
-    symptom:"Product over-baked — dark or burnt crust",
-    keywords:["over-baked","dark","burnt","overbaked","black","dark crust","charred"],
-    cause:"Oven temperature too high, belt speed too slow, or incorrect recipe loaded.",
-    steps:[
-      "Immediately verify the correct recipe is loaded on the oven HMI.",
-      "Check all zone temperatures — compare to recipe setpoints.",
-      "If belt speed is below recipe spec, increase to the correct value.",
-      "If a zone is overtemperature, reduce setpoint by 5°C and wait for stabilization.",
-      "Hold product baked since the issue began for QA inspection.",
-      "Run 10 units at corrected parameters and verify colour is within spec.",
+      "Inspect the rollers underneath the 63′ conveyor for product buildup.",
+      "If buildup found: stop the line and call Sanitation to clean the belt and roller.",
+      "Locate the tracking probe near FANUC-3.",
+      "Confirm the tracking probe is oriented upward and touching the conveyor edge.",
+      "Adjust if displaced — correct position keeps the conveyor centred.",
+      "Restart the line and monitor conveyor tracking for 5 minutes.",
     ],
     escalate:true,
-    escalateNote:"Hold all over-baked product for QA disposition. If oven zone cannot be controlled, stop production and contact Maintenance.",
+    escalateNote:"If slipping or jerking continues after roller cleaning and probe adjustment, contact LL or SL — belt or drive component may need replacement.",
   },
-  // ── DIVIDER ──
   {
-    id:"d1", line:"All Lines", category:"equipment", severity:"warning", tag:"DIVIDER",
-    symptom:"Divider not portioning consistently — weight variation out of spec",
-    keywords:["divider","portioning","weight","variation","inconsistent","out of spec","dough weight"],
-    cause:"Divider piston worn, dough hopper level too low, or incorrect pressure setting for the current dough.",
+    id:"e6", line:"All Lines", category:"equipment", severity:"warning", tag:"AUTO/MAN",
+    symptom:"Too much product bunching together at Schubert",
+    keywords:["schubert","product","bunching","auto","manual","selector switch","conveyor","changeover","startup"],
+    cause:"The Auto/Manual selector switch for the conveyor was left on 'Manual' — typically during startup or after a changeover.",
     steps:[
-      "Check the dough hopper level — refill if below the minimum fill line.",
-      "Verify the divider pressure setting matches the current recipe on the HMI.",
-      "Weigh 5 consecutive pieces on the bench scale and record the values.",
-      "If average weight is low, increase divider pressure by 0.1 bar increments.",
-      "If average weight is high, decrease pressure by 0.1 bar increments.",
-      "Re-weigh 5 pieces after each adjustment until weight is within ±5g of target.",
-      "If variation is large and random, contact Maintenance to inspect the piston seals.",
+      "Locate the AUTO/MAN selector switch on the conveyor control panel.",
+      "Confirm the switch is currently set to 'MANUAL'.",
+      "Toggle the selector switch to 'AUTO' mode.",
+      "Monitor product flow — bunching should resolve within 1–2 cycles.",
+      "Brief the team: this switch must always be on AUTO during regular production.",
+    ],
+    escalate:false, escalateNote:"",
+  },
+  {
+    id:"q1", line:"All Lines", category:"quality", severity:"warning", tag:"SLICER",
+    symptom:"Inconsistent slices — uneven thickness across the batch",
+    keywords:["inconsistent","slices","pusher","buildup","uneven","thickness","irregular"],
+    cause:"Build-up on the pusher mechanism or an equipment malfunction causing irregular slice spacing.",
+    steps:[
+      "Stop the slicer.",
+      "Inspect the pusher for product build-up or debris.",
+      "Clean the pusher thoroughly — remove all build-up.",
+      "Restart the slicer and inspect the next 10 slices for consistency.",
+      "If inconsistency persists after cleaning, contact LL or SL.",
     ],
     escalate:true,
-    escalateNote:"If weight variation exceeds ±10g and does not respond to pressure adjustment, contact Maintenance. Hold out-of-spec product for QA.",
+    escalateNote:"If the issue persists after cleaning the pusher, contact LL or SL — equipment malfunction may require Maintenance.",
   },
-  // ── MOULDER ──
   {
-    id:"mo1", line:"All Lines", category:"equipment", severity:"warning", tag:"MOULDER",
-    symptom:"Moulder jam — dough sticking or jamming in moulding rollers",
-    keywords:["moulder","jam","sticking","rollers","dough jam","clog","stuck"],
-    cause:"Dough too sticky (high hydration or temperature), flour dusting insufficient, or roller gap set too tight.",
+    id:"q2", line:"All Lines", category:"quality", severity:"warning", tag:"SLICER",
+    symptom:"Crust on first or last slice — thick end crust in product",
+    keywords:["crust","first slice","last slice","end trim","offset","row origin","thick","thin","adjustment"],
+    cause:"Incorrect row origin offset — causes the blade to cut too close to or too far from the end of the loaf.",
     steps:[
-      "Stop the moulder immediately.",
-      "Clear jammed dough manually using approved tools — never reach into moving parts.",
-      "Check the flour duster is operating and delivering flour evenly to the rollers.",
-      "Verify the roller gap setting matches the current recipe.",
-      "Check dough temperature at the moulder infeed — if above 26°C, alert the mixer operator.",
-      "Clean the rollers thoroughly before restarting.",
-      "Restart at reduced speed and monitor the first 20 pieces.",
+      "Check the thickness of end trims on both sides of the loaf.",
+      "Front trim too thick AND last slice very thin → decrease row origin offset by 2–4 mm on HMI.",
+      "Last slice crust too thick AND front slice thin → increase row origin offset by 2–4 mm on HMI.",
+      "Run the next loaf and inspect end trims again — adjust further if needed.",
+      "If problem continues after adjustment, contact LL or SL.",
     ],
     escalate:true,
-    escalateNote:"If jams recur within 30 minutes, contact LL or SL. Frequent jamming may indicate roller wear or a dough formulation issue.",
+    escalateNote:"If offset adjustments do not resolve the crust issue, contact LL or SL — may indicate equipment malfunction requiring Maintenance.",
   },
-  // ── PROOFER ──
   {
-    id:"p1", line:"All Lines", category:"equipment", severity:"warning", tag:"PROOFER",
-    symptom:"Proofer humidity alarm — humidity below setpoint",
-    keywords:["proofer","humidity","alarm","dry","low humidity","skin","crust","proofing"],
-    cause:"Steam generator fault, water supply issue, or proofer door left open causing humidity loss.",
+    id:"q3", line:"All Lines", category:"quality", severity:"critical", tag:"WEIGHT",
+    symptom:"Underweight slices — product failing weight check",
+    keywords:["underweight","weight","trim","row trim","hmi","parameter","thick trims","spec","reject"],
+    cause:"Trims on both sides of the loaf are too thick, removing excessive product and leaving slices underweight.",
     steps:[
-      "Check all proofer doors are fully closed.",
-      "Navigate to the proofer HMI and acknowledge the humidity alarm.",
-      "Check the steam generator water level and refill if low.",
-      "Inspect the steam generator for fault codes and reset if necessary.",
-      "Allow 5–10 minutes for humidity to recover to setpoint.",
-      "Check product in the proofer for skin formation — if skin is present, extend proof time by 5 minutes.",
+      "Stop the slicer — hold all product from the current batch.",
+      "Inspect trims on both sides of the loaf — confirm they appear thicker than normal.",
+      "Go to the HMI and locate the 'Row Trim Dimension' parameter.",
+      "Reduce the Row Trim Dimension by 2–3 mm.",
+      "Run the next loaf; re-weigh 5 slices on the bench scale.",
+      "Repeat in 1 mm increments until weight returns to spec.",
+      "Contact LL or SL if the problem remains after adjustment.",
     ],
     escalate:true,
-    escalateNote:"If steam generator does not recover after reset, contact Maintenance. Skinned dough may affect oven spring — flag for QA.",
+    escalateNote:"If underweight continues after row trim adjustment, contact LL or SL. Hold all out-of-spec product for QA disposition.",
   },
   {
-    id:"p2", line:"All Lines", category:"equipment", severity:"warning", tag:"PROOFER",
-    symptom:"Proofer temperature alarm — temperature deviation",
-    keywords:["proofer","temperature","alarm","too hot","too cold","temp","proofing time"],
-    cause:"Heating element fault, thermostat issue, or proofer belt speed mismatched to production rate.",
+    id:"q4", line:"All Lines", category:"quality", severity:"warning", tag:"SLICER",
+    symptom:"First and end slice too thick — rejected at Schubert",
+    keywords:["first slice","end slice","thick","schubert","rejected","first cut","slicer parameter","scanner"],
+    cause:"The 'First Cut' slicer parameter is set too high, producing an oversized first/end slice that triggers Schubert rejection.",
     steps:[
-      "Check the proofer HMI for the affected zone and deviation amount.",
-      "If temperature is low: check the heating element status and reset any faults.",
-      "If temperature is high: verify the setpoint has not been accidentally changed.",
-      "Confirm proofer belt speed matches the current production recipe.",
-      "Allow 5 minutes for temperature to stabilize after any adjustment.",
-      "If deviation exceeds 3°C and does not respond, contact Maintenance.",
+      "Go to the Slicer HMI and locate the 'First Cut' parameter.",
+      "Reduce the First Cut value by 1 mm.",
+      "Run the next loaf; check first and last slices against Schubert thickness tolerance.",
+      "If rejection continues: reduce by a further 1 mm and re-test.",
+      "If issue continues after 2 adjustments, contact LL or SL.",
     ],
     escalate:true,
-    escalateNote:"Temperature deviations affect proof time and product volume. Flag any product proofed during deviation for QA inspection.",
-  },
-  // ── SLICER ──
-  {
-    id:"s1", line:"All Lines", category:"equipment", severity:"critical", tag:"SLICER",
-    symptom:"Slicer blade alarm — blade fault or blade stopped",
-    keywords:["slicer","blade","alarm","stopped","blade fault","not slicing"],
-    cause:"Blade guard open, blade jam, or motor overcurrent fault from a hard product or foreign object.",
-    steps:[
-      "Stop the slicer immediately and engage E-stop.",
-      "Do NOT reach into the blade area — ensure the blade has fully stopped.",
-      "Check for and remove any jammed product, bones, or foreign objects using approved tools.",
-      "Inspect the blade guard — confirm it is fully closed before reset.",
-      "Clear the fault from the slicer HMI and perform a controlled reset.",
-      "Restart at low speed and monitor the first 5 loaves.",
-      "If fault returns, contact Maintenance — do not continue slicing.",
-    ],
-    escalate:true,
-    escalateNote:"Never bypass blade safety interlocks. If the fault returns after reset, stop production and contact Maintenance immediately.",
-  },
-  {
-    id:"s2", line:"All Lines", category:"quality", severity:"warning", tag:"SLICER",
-    symptom:"Inconsistent slice thickness — uneven slices in the bag",
-    keywords:["slices","thickness","uneven","inconsistent","thick","thin","slicer","pusher"],
-    cause:"Build-up on the pusher mechanism, worn blade, or incorrect slice thickness parameter on HMI.",
-    steps:[
-      "Stop the slicer and inspect the pusher for product build-up or debris.",
-      "Clean the pusher thoroughly.",
-      "Check the slice thickness parameter on the HMI against the active recipe.",
-      "Inspect the blade for nicks or dullness — if blade appears worn, notify Maintenance for change.",
-      "Restart and inspect the next 10 sliced loaves.",
-      "If inconsistency persists, contact LL or SL.",
-    ],
-    escalate:true,
-    escalateNote:"Inconsistent slice thickness may cause weight issues. Flag product for QA if weight is out of spec.",
-  },
-  // ── WRAPPER / PACKAGING ──
-  {
-    id:"w1", line:"All Lines", category:"equipment", severity:"warning", tag:"WRAPPER",
-    symptom:"Wrapper jaw not sealing — open or weak end seals",
-    keywords:["wrapper","seal","jaw","open seal","end seal","packaging","not sealing","weak seal"],
-    cause:"Jaw temperature too low, jaw pressure insufficient, or film type mismatch.",
-    steps:[
-      "Check the jaw temperature on the wrapper HMI — compare to recipe setpoint.",
-      "If temperature is below setpoint, wait for recovery (up to 3 minutes).",
-      "Verify the jaw pressure setting matches the current film specification.",
-      "Inspect the jaw sealing surface for product contamination or debris — clean if necessary.",
-      "Run 5 test packs and inspect seals by pulling them apart gently.",
-      "Adjust jaw temperature in 2°C increments until seals are strong.",
-      "Document the new setting if a permanent adjustment is needed.",
-    ],
-    escalate:true,
-    escalateNote:"Open seals compromise product shelf life. Hold all affected product for QA inspection. Contact Maintenance if jaw does not reach setpoint.",
-  },
-  {
-    id:"w2", line:"All Lines", category:"equipment", severity:"warning", tag:"WRAPPER",
-    symptom:"Wrapper film jam or film break",
-    keywords:["wrapper","film","jam","break","film break","film jam","packaging"],
-    cause:"Film roll misaligned, splice failure, or film tension set incorrectly for the current roll.",
-    steps:[
-      "Stop the wrapper and clear the jammed or broken film from the film path.",
-      "Check the film roll alignment — ensure it sits square on the film mount.",
-      "If the film broke at a splice, re-splice using the approved splicing tape and procedure.",
-      "Thread the film through the film path following the routing diagram on the machine.",
-      "Check the film tension setting — adjust if the film was visibly over- or under-tensioned.",
-      "Run 10 packs and confirm consistent film feed without breaks.",
-    ],
-    escalate:false,
-    escalateNote:"",
-  },
-  // ── CONVEYOR ──
-  {
-    id:"c1", line:"All Lines", category:"equipment", severity:"warning", tag:"CONVEYOR",
-    symptom:"Conveyor belt slipping, jerking, or tracking off-centre",
-    keywords:["conveyor","belt","slipping","jerking","tracking","off centre","drift"],
-    cause:"Product build-up on drive roller, worn belt, or tracking roller misaligned.",
-    steps:[
-      "Stop the line and inspect the drive roller for product build-up.",
-      "If build-up is found, call Sanitation to clean the belt and roller.",
-      "Inspect the tracking rollers at both ends of the conveyor.",
-      "Adjust the tracking roller on the side the belt is drifting toward — turn the adjuster bolt ¼ turn at a time.",
-      "Restart the conveyor and observe tracking for 2 minutes.",
-      "Repeat adjustment if drift continues.",
-      "If belt is visibly cracked or stretched, contact Maintenance for belt replacement.",
-    ],
-    escalate:true,
-    escalateNote:"If slipping or tracking cannot be corrected, stop the line and contact Maintenance. A drifting belt can cause jams and product damage.",
-  },
-  // ── METAL DETECTOR ──
-  {
-    id:"md1", line:"All Lines", category:"equipment", severity:"critical", tag:"METAL DETECTOR",
-    symptom:"Metal detector rejecting product — frequent false rejects",
-    keywords:["metal detector","false reject","reject","alarm","MD","metal","false alarm"],
-    cause:"Product effect not calibrated for the current product, nearby equipment interference, or detector head contamination.",
-    steps:[
-      "Do NOT silence or bypass the metal detector — investigate first.",
-      "Check the product effect setting on the detector HMI — confirm it matches the current SKU.",
-      "Perform a product effect learn/calibration if the SKU has changed since last calibration.",
-      "Check for any nearby equipment (motors, conveyors) recently moved near the detector head.",
-      "Inspect the detector aperture for product residue or foreign material — clean if necessary.",
-      "Run the test piece (Fe, Non-Fe, SS) to confirm the detector is still detecting correctly.",
-      "If false rejects continue, contact QA and Maintenance before resuming production.",
-    ],
-    escalate:true,
-    escalateNote:"Never disable or bypass the metal detector. Contact QA immediately if cause of false rejects is unknown. All rejected product must be quarantined.",
-  },
-  {
-    id:"md2", line:"All Lines", category:"equipment", severity:"critical", tag:"METAL DETECTOR",
-    symptom:"Metal detector confirmed metal detection — real detection event",
-    keywords:["metal detector","metal found","confirmed","real detection","contamination","metal in product"],
-    cause:"Metal contamination present in product or packaging material.",
-    steps:[
-      "Stop the line immediately.",
-      "Quarantine ALL product from the current run — do not release any product.",
-      "Contact QA immediately.",
-      "Locate and retain the rejected pack(s).",
-      "Do not restart the line until QA has cleared the product and identified the source.",
-      "Complete a metal contamination incident report.",
-      "Maintenance to inspect all upstream equipment for broken/missing metal parts.",
-    ],
-    escalate:true,
-    escalateNote:"FOOD SAFETY EVENT. Contact QA and Plant Manager immediately. Line must not restart until source is identified and product cleared.",
-  },
-  // ── QUALITY ──
-  {
-    id:"q1", line:"All Lines", category:"quality", severity:"warning", tag:"QUALITY",
-    symptom:"Product weight out of spec — underweight or overweight",
-    keywords:["weight","underweight","overweight","out of spec","scale","check weigher","weight check"],
-    cause:"Divider portioning drift, incorrect recipe weight, or check weigher calibration issue.",
-    steps:[
-      "Weigh 10 consecutive units on the certified bench scale.",
-      "Record weights and compare to the recipe target weight and tolerance.",
-      "If underweight: increase divider pressure in 0.1 bar steps, re-weigh after each change.",
-      "If overweight: reduce divider pressure in 0.1 bar steps, re-weigh after each change.",
-      "Verify the check weigher is calibrated — run the calibration weight and confirm display matches.",
-      "Hold all out-of-spec product for QA disposition.",
-      "Log the adjustment on the production sheet.",
-    ],
-    escalate:true,
-    escalateNote:"Hold all out-of-spec product for QA disposition. If weight cannot be brought into spec within 3 adjustments, contact LL or SL.",
-  },
-  {
-    id:"q2", line:"All Lines", category:"quality", severity:"warning", tag:"QUALITY",
-    symptom:"Air pockets or large holes in product crumb",
-    keywords:["air pockets","holes","crumb","voids","bubble","large holes","open texture","gas"],
-    cause:"Over-proofing, excessive gas from yeast, or folding issue during moulding.",
-    steps:[
-      "Check proofer temperature and humidity setpoints against the recipe.",
-      "Verify proofer belt speed — a slow speed increases proof time and can cause over-proofing.",
-      "Inspect the moulding station for incorrect fold pattern or roller gap.",
-      "Check yeast dosage on the mixer recipe — confirm it has not been accidentally doubled.",
-      "Evaluate the last 10 baked units — if more than 3 are affected, hold for QA.",
-      "Adjust proof time (belt speed) by +/- 2% and monitor the next batch.",
-    ],
-    escalate:true,
-    escalateNote:"Hold affected product for QA inspection. If more than 20% of product has voids, stop the run and contact LL or SL.",
-  },
-  // ── SAFETY ──
-  {
-    id:"sf1", line:"All Lines", category:"safety", severity:"critical", tag:"SAFETY",
-    symptom:"Line E-stop activated — line will not restart",
-    keywords:["e-stop","emergency stop","line stopped","won't start","safety","reset","not restarting"],
-    cause:"Emergency stop activated (intentional or accidental), safety gate open, or safety relay trip.",
-    steps:[
-      "Identify the source of the E-stop — walk the entire line to locate the activated button.",
-      "Ensure the reason for the E-stop has been resolved (injury, jam, spill, etc.).",
-      "Pull out all activated E-stop buttons.",
-      "Confirm all safety gates and interlocked guards are closed and latched.",
-      "Press the LINE RESET button at the main control panel.",
-      "Restart individual stations in sequence per startup procedure.",
-      "Log the E-stop event with the time, location, and reason.",
-    ],
-    escalate:true,
-    escalateNote:"If E-stop was activated due to an injury or near-miss, do NOT restart the line. Contact LL, SL, and Safety immediately and preserve the scene.",
-  },
-  // ── DATE CODER ──
-  {
-    id:"ink1", line:"All Lines", category:"equipment", severity:"warning", tag:"CODER",
-    symptom:"Ink jet / date coder not printing or printing incorrect date",
-    keywords:["coder","ink jet","date code","not printing","missing code","best before","date","ink"],
-    cause:"Ink level low, printhead blocked, or date/time parameter not updated at shift start.",
-    steps:[
-      "Check the ink level on the coder — refill if below the minimum line.",
-      "Navigate to the coder HMI and verify the date, time, and best-before offset are correct.",
-      "Update the date/time if incorrect.",
-      "Perform a printhead purge from the coder HMI maintenance menu.",
-      "Print a test code on a label and verify all characters are clear and correctly positioned.",
-      "If printhead remains blocked after 2 purge cycles, contact Maintenance.",
-    ],
-    escalate:true,
-    escalateNote:"Do NOT release product without a legible, correct date code. Hold all affected product for QA inspection and re-coding if possible.",
+    escalateNote:"If Schubert continues to reject first/end slices after First Cut adjustment, contact LL or SL — may indicate equipment malfunction.",
   },
   // ── TAPE MACHINE ──
   {
@@ -403,8 +212,7 @@ const DEFAULT_ISSUES = [
       "Confirm tape is applied equally across both left and right flaps.",
       "Adjust in small increments until flaps close with no gap and tape holds firmly.",
     ],
-    escalate:false,
-    escalateNote:"",
+    escalate:false, escalateNote:"",
   },
   {
     id:"tm2", line:"All Lines", category:"equipment", severity:"warning", tag:"TAPE MACHINE",
@@ -553,14 +361,35 @@ const store = {
   del: k   => { try{ localStorage.removeItem(k); }catch{} },
 };
 
+// ─── FIREBASE ─────────────────────────────────────────────────────────────────
+const _fbConfig = {
+  apiKey:            "AIzaSyBT0L5DmVZ48sf4AoFDJS_3677gvsf10ec",
+  authDomain:        "cre-troubleshoot-matrix.firebaseapp.com",
+  databaseURL:       "https://cre-troubleshoot-matrix-default-rtdb.firebaseio.com",
+  projectId:         "cre-troubleshoot-matrix",
+  storageBucket:     "cre-troubleshoot-matrix.firebasestorage.app",
+  messagingSenderId: "37143532786",
+  appId:             "1:37143532786:web:518717c6c6eebb278d2c6b",
+};
+firebase.initializeApp(_fbConfig);
+const db = firebase.database();
+
 // ─── HOOKS ────────────────────────────────────────────────────────────────────
 function useRecords() {
-  const [records, setRecords] = useState(() => {
-    try{ const r=store.get(LOG_KEY); return r?JSON.parse(r):[]; }catch{ return []; }
-  });
+  const [records, setRecords] = useState([]);
+  useEffect(() => {
+    const ref = db.ref('logs');
+    ref.on('value', snap => {
+      const val = snap.val();
+      const arr = val ? Object.values(val) : [];
+      arr.sort((a, b) => b.ts - a.ts);
+      setRecords(arr);
+    });
+    return () => ref.off();
+  }, []);
   const addRecord = useCallback(rec => {
-    setRecords(prev => { const next=[...prev,rec]; store.set(LOG_KEY,JSON.stringify(next)); return next; });
-  },[]);
+    db.ref('logs').push(rec);
+  }, []);
   return { records, addRecord };
 }
 
