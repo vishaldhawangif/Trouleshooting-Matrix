@@ -5,11 +5,12 @@
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <title>CRE Troubleshoot Matrix — FGF Brands</title>
 </head>
-<body style="margin:0;background:#cfd9c8">
+<body style="margin:0;background:#f2f5f2">
   <div id="root"></div>
   <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
   <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -257,11 +258,11 @@ const CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --bg:#cfd9c8;--bg-card:#ffffff;--bg-panel:#ffffff;--bg-deep:#e8f0e4;
-  --border:#bccfb6;--border-mid:#a8c0a2;--border-hi:#7a9e74;
-  --t1:#1a2e18;--t2:#2d4828;--t3:#567050;--t4:#8aaa84;--t5:#c0d4bb;
-  --acc:#1a7a6a;--acc-d:#136058;--grn:#1a8a4a;--red:#c8102e;--blu:#2563eb;--pur:#7c3aed;--ora:#ea580c;
-  --fgf-green:#2d7a2d;--fgf-teal:#1a7a6a;--fgf-dark:#1a3a1a;
+  --bg:#f2f5f2;--bg-card:#ffffff;--bg-panel:#ffffff;--bg-deep:#eaf2ea;
+  --border:#dce8dc;--border-mid:#c2d9c2;--border-hi:#8fc48f;
+  --t1:#1a1a1a;--t2:#333333;--t3:#666666;--t4:#999999;--t5:#cccccc;
+  --acc:#3aab5e;--acc-d:#2d8a4a;--grn:#3aab5e;--red:#c8102e;--blu:#2563eb;--pur:#7c3aed;--ora:#ea580c;
+  --fgf-green:#3aab5e;--fgf-dark:#1a3a1a;
   --card-rad:10px;--panel-rad:14px;
   --shadow-sm:0 1px 3px rgba(0,0,0,.07),0 1px 8px rgba(0,0,0,.05);
   --shadow-md:0 4px 16px rgba(0,0,0,.09),0 2px 6px rgba(0,0,0,.05);
@@ -309,20 +310,20 @@ body{background:var(--bg);color:var(--t1);font-family:'Inter',system-ui,sans-ser
 .btn:focus-visible{outline:2px solid var(--acc);outline-offset:2px;}
 .btn--ghost{background:#ffffff;border:1px solid var(--border-mid);color:var(--t2);}
 .btn--ghost:hover{background:var(--bg-deep);border-color:var(--border-hi);color:var(--t1);}
-.btn--green{background:#1a8a4a;color:#fff;}
+.btn--green{background:var(--fgf-green);color:#fff;}
 .btn--amber{background:linear-gradient(135deg,#f59e0b,#d97706);color:#000;box-shadow:0 4px 14px rgba(245,158,11,.28);}
 .btn--amber:hover{box-shadow:0 6px 20px rgba(245,158,11,.36);}
 .btn--red{background:#fef2f2;border:1px solid #fecaca;color:#c8102e;}
-.btn--blue{background:#e8f5f3;border:1px solid #a0d0c8;color:#1a7a6a;}
-.btn--fgf{background:linear-gradient(135deg,#1a7a6a,#136058);color:#fff;box-shadow:0 4px 14px rgba(26,122,106,.3);}
-.btn--fgf:hover{box-shadow:0 6px 20px rgba(26,122,106,.4);}
+.btn--blue{background:#eaf6ee;border:1px solid #a8d9b8;color:var(--fgf-green);}
+.btn--fgf{background:var(--fgf-green);color:#fff;box-shadow:0 4px 14px rgba(58,171,94,.3);}
+.btn--fgf:hover{box-shadow:0 6px 20px rgba(58,171,94,.4);}
 .btn--full{width:100%;justify-content:center;}
-.btn--cta{background:linear-gradient(135deg,#1a7a6a,#136058);color:#fff;font-size:12px;padding:7px 14px;border-radius:7px;font-weight:700;box-shadow:0 3px 12px rgba(26,122,106,.25);}
-.btn--cta:hover{box-shadow:0 6px 20px rgba(26,122,106,.38);}
+.btn--cta{background:var(--fgf-green);color:#fff;font-size:12px;padding:7px 14px;border-radius:7px;font-weight:700;box-shadow:0 3px 12px rgba(58,171,94,.3);}
+.btn--cta:hover{filter:brightness(1.08);box-shadow:0 6px 20px rgba(58,171,94,.4);}
 
 input,textarea{font-family:inherit;outline:none;}
 .input{width:100%;background:#ffffff;border:1.5px solid var(--border-mid);border-radius:8px;padding:10px 12px;color:var(--t1);font-size:13px;transition:border-color 150ms,background 150ms,box-shadow 150ms;}
-.input:focus{border-color:var(--acc);background:#f4fbf9;box-shadow:0 0 0 3px rgba(26,122,106,.12);}
+.input:focus{border-color:var(--acc);background:#f4fbf7;box-shadow:0 0 0 3px rgba(58,171,94,.15);}
 .input--error{border-color:var(--red)!important;animation:shakeErr 320ms ease;}
 select.input{cursor:pointer;}
 input[type=date]::-webkit-calendar-picker-indicator{cursor:pointer;opacity:.7;}
@@ -335,20 +336,20 @@ input[type=date]::-webkit-calendar-picker-indicator:hover{opacity:1;}
 .confirm-tile{animation:popIn 320ms cubic-bezier(.16,1,.3,1) forwards;}
 
 .drop-zone{border:2px dashed var(--border-mid);border-radius:10px;padding:24px;text-align:center;cursor:pointer;transition:border-color 150ms,background 150ms;}
-.drop-zone:hover{border-color:var(--acc);background:rgba(26,122,106,.03);}
+.drop-zone:hover{border-color:var(--fgf-green);background:rgba(58,171,94,.04);}
 
 .guide-iframe{width:100%;aspect-ratio:16/9;border:none;border-radius:10px;background:#000;}
 
-.app-header{background:#ffffff;border-bottom:2px solid #c8d9c2;position:sticky;top:0;z-index:100;box-shadow:0 2px 10px rgba(0,0,0,.07);}
+.app-header{background:#ffffff;border-bottom:3px solid var(--fgf-green);position:sticky;top:0;z-index:100;box-shadow:0 2px 12px rgba(0,0,0,.08);}
 
 .search-wrap{position:relative;}
 .search-icon{position:absolute;left:13px;top:50%;transform:translateY(-50%);color:var(--t4);pointer-events:none;}
 .search-clear{position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--t3);cursor:pointer;font-size:18px;line-height:1;padding:2px;border-radius:3px;}
 .search-clear:hover{color:var(--t1);}
 
-.nav-tab{cursor:pointer;padding:9px 16px;font-size:13px;font-weight:600;border-radius:8px;transition:all 150ms ease;border:none;background:transparent;color:var(--t3);letter-spacing:.02em;}
-.nav-tab:hover{color:var(--acc);background:rgba(26,122,106,.08);}
-.nav-tab.active{color:var(--acc);background:rgba(26,122,106,.12);box-shadow:inset 0 0 0 1px rgba(26,122,106,.2);}
+.nav-tab{cursor:pointer;padding:10px 16px;font-size:13px;font-weight:600;border-radius:0;transition:all 150ms ease;border:none;border-bottom:3px solid transparent;background:transparent;color:var(--t3);letter-spacing:.02em;margin-bottom:-3px;}
+.nav-tab:hover{color:var(--fgf-green);border-bottom-color:rgba(58,171,94,.4);}
+.nav-tab.active{color:var(--fgf-green);border-bottom-color:var(--fgf-green);font-weight:700;}
 
 .kpi{background:#ffffff;border:1px solid var(--border);border-radius:var(--card-rad);padding:14px 16px;box-shadow:var(--shadow-sm);}
 
@@ -356,7 +357,7 @@ input[type=date]::-webkit-calendar-picker-indicator:hover{opacity:1;}
 
 @media(min-width:700px){.panel-body{display:flex;}}
 .panel-col-left{flex:1;min-width:0;overflow-y:auto;padding:18px 20px;border-right:1px solid var(--border);}
-.panel-col-right{width:280px;flex-shrink:0;overflow-y:auto;padding:18px 20px;background:var(--bg-deep);}
+.panel-col-right{width:280px;flex-shrink:0;overflow-y:auto;padding:18px 20px;background:#f7fdf8;border-left:1px solid var(--border);}
 @media(max-width:699px){
   .panel-col-left,.panel-col-right{padding:14px 16px;overflow-y:visible;}
   .panel-col-right{width:100%;border-top:1px solid var(--border);border-right:none;}
@@ -400,6 +401,7 @@ const _fbConfig = {
 };
 firebase.initializeApp(_fbConfig);
 const db = firebase.database();
+const storage = firebase.storage();
 
 // ─── HOOKS ────────────────────────────────────────────────────────────────────
 function useRecords() {
@@ -615,7 +617,7 @@ const IssueCard = memo(({issue, logCount, hasGuide, onClick}) => (
             📋 {logCount}× logged
           </span>
         )}
-        {hasGuide&&<span style={{background:"rgba(26,122,106,.08)",color:"var(--acc)",border:"1px solid rgba(26,122,106,.22)",borderRadius:5,fontSize:10,fontWeight:700,padding:"2px 7px"}}>🎬 Guide</span>}
+        {hasGuide&&<span style={{background:"rgba(58,171,94,.08)",color:"var(--acc)",border:"1px solid rgba(58,171,94,.22)",borderRadius:5,fontSize:10,fontWeight:700,padding:"2px 7px"}}>🎬 Guide</span>}
       </div>
       <button className="btn btn--cta" onClick={e=>{e.stopPropagation();onClick();}}>Troubleshoot →</button>
     </div>
@@ -626,20 +628,34 @@ const IssueCard = memo(({issue, logCount, hasGuide, onClick}) => (
 function DetailPanel({issue, elapsed, steps, isClosed, closedInfo, guideUrl, onToggleStep, onSubmit, onClose, onSaveGuide, onRemoveGuide, escalationEmail, adminUnlocked}) {
   const opRef=useRef(null); const signOffRef=useRef(null);
   const [opName,setOpName]=useState(""); const [sku,setSku]=useState("");
-  const [notes,setNotes]=useState(""); const [videoUrl,setVideoUrl]=useState("");
+  const [notes,setNotes]=useState(""); const [videoFile,setVideoFile]=useState(null);
+  const [uploading,setUploading]=useState(false); const [uploadPct,setUploadPct]=useState(0);
   const [opErr,setOpErr]=useState(false); const [errKey,setErrKey]=useState(0);
+  const videoInputRef=useRef(null);
 
   const totalSteps=issue.steps.length; const doneCount=steps.size;
   const pct=totalSteps>0?(doneCount/totalSteps)*100:0; const allDone=doneCount>=totalSteps;
 
   useEscClose(onClose);
   useEffect(()=>{ if(allDone&&!isClosed&&signOffRef.current){ signOffRef.current.scrollIntoView({behavior:"smooth",block:"nearest"}); setTimeout(()=>opRef.current?.focus(),350); } },[allDone]);
-  useEffect(()=>{ setOpName(""); setSku(""); setNotes(""); setVideoUrl(""); setOpErr(false); },[issue.id]);
+  useEffect(()=>{ setOpName(""); setSku(""); setNotes(""); setVideoFile(null); setUploadPct(0); setOpErr(false); },[issue.id]);
 
   const handleSubmit = outcome => {
     if(!opName.trim()){ setOpErr(true); setErrKey(k=>k+1); opRef.current?.focus(); return; }
     const skuVal=sku.trim()?sku.trim().toUpperCase():"N/A";
-    onSubmit({outcome, operator:opName.trim(), sku:skuVal, notes:notes.trim(), videoUrl:videoUrl.trim(), timeToFix:fmtT(elapsed)});
+    const elapsed_snap=elapsed; // capture current elapsed
+    if(outcome==="escalated"&&videoFile){
+      setUploading(true); setUploadPct(0);
+      const path=`issue-videos/${Date.now()}_${videoFile.name.replace(/[^a-zA-Z0-9._-]/g,"_")}`;
+      const ref=storage.ref(path);
+      const task=ref.put(videoFile);
+      task.on("state_changed",snap=>{ setUploadPct(Math.round(snap.bytesTransferred/snap.totalBytes*100)); },
+        ()=>{ setUploading(false); alert("Upload failed. Check your Firebase Storage rules."); },
+        ()=>{ ref.getDownloadURL().then(url=>{ setUploading(false); onSubmit({outcome,operator:opName.trim(),sku:skuVal,notes:notes.trim(),videoUrl:url,timeToFix:fmtT(elapsed_snap)}); }); }
+      );
+      return;
+    }
+    onSubmit({outcome, operator:opName.trim(), sku:skuVal, notes:notes.trim(), videoUrl:"", timeToFix:fmtT(elapsed_snap)});
     if(outcome==="escalated"&&escalationEmail&&escalationEmail.trim()){
       const ejsKey=store.get(EJS_KEY_KEY);
       const ejsService=store.get(EJS_SERVICE_KEY);
@@ -709,7 +725,7 @@ function DetailPanel({issue, elapsed, steps, isClosed, closedInfo, guideUrl, onT
         </div>
 
         {/* Mobile hint */}
-        {!isClosed&&<div className="panel-mobile-hint" style={{display:"none",background:"rgba(26,122,106,.08)",borderBottom:"1px solid rgba(26,122,106,.18)",padding:"8px 16px",alignItems:"center",justifyContent:"space-between",flexShrink:0}}>
+        {!isClosed&&<div className="panel-mobile-hint" style={{display:"none",background:"rgba(58,171,94,.08)",borderBottom:"1px solid rgba(58,171,94,.18)",padding:"8px 16px",alignItems:"center",justifyContent:"space-between",flexShrink:0}}>
           <span style={{fontSize:12,color:"var(--acc)",fontWeight:600}}>👇 Scroll down to sign off</span>
           <button className="btn btn--ghost" style={{fontSize:11,padding:"4px 10px"}} onClick={()=>{document.querySelector('.panel-col-right')?.scrollIntoView({behavior:'smooth'});}}>Go to Sign-Off</button>
         </div>}
@@ -720,7 +736,7 @@ function DetailPanel({issue, elapsed, steps, isClosed, closedInfo, guideUrl, onT
           <div className="panel-col-left">
             <div style={{display:"flex",flexDirection:"column",gap:14}}>
               {/* Root cause */}
-              <div style={{background:"linear-gradient(135deg,rgba(26,122,106,.08),rgba(26,122,106,.03))",borderLeft:"3px solid var(--acc)",borderRadius:8,padding:"12px 16px"}}>
+              <div style={{background:"linear-gradient(135deg,rgba(58,171,94,.07),rgba(58,171,94,.02))",borderLeft:"3px solid var(--fgf-green)",borderRadius:8,padding:"12px 16px"}}>
                 <div style={{fontSize:10,fontWeight:800,color:"var(--acc)",letterSpacing:".08em",marginBottom:6}}>🔍 ROOT CAUSE</div>
                 <p style={{fontSize:13,color:"var(--t2)",lineHeight:1.7,margin:0}}>{issue.cause}</p>
               </div>
@@ -803,24 +819,55 @@ function DetailPanel({issue, elapsed, steps, isClosed, closedInfo, guideUrl, onT
                   <textarea value={notes} onChange={e=>setNotes(e.target.value)} rows={3} placeholder="Observations, workarounds…" className="input" style={{resize:"vertical"}}/>
                 </div>
                 <div style={{background:"rgba(239,68,68,.04)",border:"1px solid rgba(239,68,68,.18)",borderRadius:8,padding:"10px 12px"}}>
-                  <label style={{fontSize:11,color:"var(--red)",display:"block",marginBottom:5,fontWeight:700}}>📹 Issue Video Link <span style={{color:"var(--t4)",fontWeight:400}}>(if escalating)</span></label>
-                  <input value={videoUrl} onChange={e=>setVideoUrl(e.target.value)}
-                    placeholder="Paste Google Drive / OneDrive / YouTube link…"
-                    className="input" style={{marginBottom:0}}/>
-                  <div style={{fontSize:10,color:"var(--t4)",marginTop:5}}>Record the issue on your phone → share to Google Drive → paste the link here</div>
+                  <div style={{fontSize:11,color:"var(--red)",fontWeight:700,marginBottom:8}}>📹 Issue Video <span style={{color:"var(--t4)",fontWeight:400}}>(if escalating)</span></div>
+                  <input ref={videoInputRef} type="file" accept="video/*" capture="environment"
+                    style={{display:"none"}} onChange={e=>setVideoFile(e.target.files[0]||null)}/>
+                  {!videoFile?(
+                    <button type="button" className="btn btn--ghost btn--full"
+                      style={{border:"1.5px dashed var(--border-mid)",borderRadius:8,padding:"14px",flexDirection:"column",gap:4,height:"auto"}}
+                      onClick={()=>videoInputRef.current?.click()}>
+                      <span style={{fontSize:22}}>🎥</span>
+                      <span style={{fontSize:12,fontWeight:700,color:"var(--t2)"}}>Tap to record / choose video</span>
+                      <span style={{fontSize:10,color:"var(--t4)",fontWeight:400}}>Opens camera or file picker</span>
+                    </button>
+                  ):(
+                    <div style={{background:"var(--bg-deep)",border:"1px solid var(--border-mid)",borderRadius:8,padding:"10px 12px"}}>
+                      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}>
+                        <div style={{display:"flex",alignItems:"center",gap:8,minWidth:0}}>
+                          <span style={{fontSize:18,flexShrink:0}}>🎬</span>
+                          <div style={{minWidth:0}}>
+                            <div style={{fontSize:12,fontWeight:700,color:"var(--t1)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{videoFile.name}</div>
+                            <div style={{fontSize:10,color:"var(--t4)"}}>{(videoFile.size/1024/1024).toFixed(1)} MB</div>
+                          </div>
+                        </div>
+                        <button type="button" className="btn btn--ghost" style={{padding:"3px 9px",fontSize:11,flexShrink:0}}
+                          onClick={()=>{setVideoFile(null);if(videoInputRef.current)videoInputRef.current.value="";}}>× Remove</button>
+                      </div>
+                      {uploading&&(
+                        <div style={{marginTop:10}}>
+                          <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:"var(--t3)",marginBottom:4}}>
+                            <span>Uploading…</span><span>{uploadPct}%</span>
+                          </div>
+                          <div style={{height:6,background:"var(--border)",borderRadius:99,overflow:"hidden"}}>
+                            <div style={{width:`${uploadPct}%`,height:"100%",background:"var(--red)",borderRadius:99,transition:"width 200ms ease"}}/>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
                 {escalationEmail&&escalationEmail.trim()&&(
-                  <div style={{background:"rgba(26,122,106,.06)",border:"1px solid rgba(26,122,106,.2)",borderRadius:8,padding:"10px 12px"}}>
+                  <div style={{background:"rgba(58,171,94,.06)",border:"1px solid rgba(58,171,94,.2)",borderRadius:8,padding:"10px 12px"}}>
                     <div style={{fontSize:10,color:"var(--t4)",marginBottom:2}}>📧 On escalation, will notify:</div>
                     <div style={{fontSize:11,color:"var(--acc)",fontWeight:600,wordBreak:"break-all"}}>{escalationEmail}</div>
                   </div>
                 )}
                 <div style={{display:"flex",flexDirection:"column",gap:8}}>
-                  <button className="btn btn--green btn--full" style={{fontSize:13,padding:"11px"}} onClick={()=>handleSubmit("resolved")}>
+                  <button className="btn btn--green btn--full" style={{fontSize:13,padding:"11px"}} disabled={uploading} onClick={()=>handleSubmit("resolved")}>
                     ✅ {allDone?"Mark as Resolved":"Resolve (incomplete steps)"}
                   </button>
-                  <button className="btn btn--amber btn--full" style={{fontSize:13,padding:"11px"}} onClick={()=>handleSubmit("escalated")}>
-                    🔔 Escalate Issue
+                  <button className="btn btn--amber btn--full" style={{fontSize:13,padding:"11px",opacity:uploading?.6:1}} disabled={uploading} onClick={()=>handleSubmit("escalated")}>
+                    {uploading?`⏳ Uploading… ${uploadPct}%`:"🔔 Escalate Issue"}
                   </button>
                 </div>
               </div>
@@ -1486,23 +1533,15 @@ function App() {
         <div style={{maxWidth:1200,margin:"0 auto",padding:"10px 16px",display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
           {/* FGF Logo area */}
           <div style={{display:"flex",alignItems:"center",gap:12}}>
-            {/* FGF Wonderbrands-style logo */}
-            <div style={{display:"flex",flexDirection:"column",flexShrink:0}}>
-              <div style={{display:"flex",gap:3,marginBottom:3}}>
-                {["#c8102e","#f59e0b","#22c55e","#3b82f6","#a855f7","#ec4899"].map((c,i)=>(
-                  <div key={i} style={{width:5,height:5,borderRadius:"50%",background:c}}/>
-                ))}
+            {/* FGF logo — matches Intranet Portal */}
+            <div style={{display:"flex",alignItems:"center",gap:10,flexShrink:0}}>
+              <div style={{background:"var(--fgf-green)",borderRadius:6,padding:"6px 10px",boxShadow:"0 2px 8px rgba(58,171,94,.35)"}}>
+                <span style={{fontFamily:"'Inter',sans-serif",fontWeight:900,fontSize:16,color:"#fff",letterSpacing:".08em",lineHeight:1}}>FGF</span>
               </div>
-              <div style={{display:"flex",alignItems:"baseline",gap:5}}>
-                <span style={{fontFamily:"'Inter',sans-serif",fontWeight:900,fontSize:22,color:"#2d7a2d",letterSpacing:"-.02em",lineHeight:1}}>FGF</span>
-                <span style={{fontFamily:"'Inter',sans-serif",fontWeight:600,fontSize:11,color:"#567050",letterSpacing:".01em"}}>Wonderbrands</span>
+              <div style={{display:"flex",flexDirection:"column"}}>
+                <span style={{fontSize:13,fontWeight:800,color:"var(--t1)",lineHeight:1.2,letterSpacing:".01em"}}>CRE Troubleshoot Matrix</span>
+                <span style={{fontSize:10,color:"var(--t4)",fontWeight:400,marginTop:1}}>{PLANT_NAME} · v{APP_VER}</span>
               </div>
-            </div>
-            {/* Divider */}
-            <div style={{width:1,height:32,background:"#c8d9c2",flexShrink:0}}/>
-            <div>
-              <div style={{fontSize:13,fontWeight:700,color:"var(--t1)",lineHeight:1.25,letterSpacing:".01em"}}>CRE Troubleshoot Matrix</div>
-              <div style={{fontSize:10,color:"var(--t4)",fontWeight:400,marginTop:2}}>{PLANT_NAME} · v{APP_VER}</div>
             </div>
           </div>
 
