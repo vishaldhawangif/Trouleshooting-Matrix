@@ -246,11 +246,18 @@ const fmtDateShort = ts => new Date(ts).toLocaleDateString(undefined,{month:"sho
 function getEmbedUrl(url) {
   if(!url) return null;
   const yt = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
-  if(yt) return `https://www.youtube.com/embed/${yt[1]}?rel=0`;
+  if(yt) return `https://www.youtube.com/embed/${yt[1]}?rel=0&autoplay=1`;
   const vimeo = url.match(/vimeo\.com\/(\d+)/);
-  if(vimeo) return `https://player.vimeo.com/video/${vimeo[1]}`;
-  if(/\.(mp4|webm|ogg|mov)(\?|$)/i.test(url)) return url;
+  if(vimeo) return `https://player.vimeo.com/video/${vimeo[1]}?autoplay=1`;
+  // Google Drive: /file/d/ID/view → /file/d/ID/preview
+  const gd = url.match(/drive\.google\.com\/file\/d\/([^/]+)/);
+  if(gd) return `https://drive.google.com/file/d/${gd[1]}/preview`;
   return null;
+}
+function isDirectVideo(url) {
+  if(!url) return false;
+  if(url.includes('firebasestorage.googleapis.com')) return true;
+  return /\.(mp4|webm|ogg|mov)(\?|$)/i.test(url);
 }
 
 // ─── GLOBAL CSS ───────────────────────────────────────────────────────────────
@@ -339,6 +346,9 @@ input[type=date]::-webkit-calendar-picker-indicator:hover{opacity:1;}
 .drop-zone:hover{border-color:var(--fgf-green);background:rgba(58,171,94,.04);}
 
 .guide-iframe{width:100%;aspect-ratio:16/9;border:none;border-radius:10px;background:#000;}
+@keyframes sheetUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.video-sheet{animation:sheetUp 280ms cubic-bezier(.16,1,.3,1) forwards;}
+.video-sheet-bg{animation:fadeIn 200ms ease forwards;}
 
 .app-header{background:#ffffff;border-bottom:3px solid var(--fgf-green);position:sticky;top:0;z-index:100;box-shadow:0 2px 12px rgba(0,0,0,.08);}
 
@@ -523,12 +533,91 @@ function Toast({toast, onDone}) {
   );
 }
 
+// ─── VIDEO SHEET (in-panel player) ───────────────────────────────────────────
+// Determine how to play a URL
+function classifyUrl(url) {
+  if(!url) return "none";
+  if(isDirectVideo(url)) return "video";
+  const yt=url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+  if(yt) return "embed";
+  if(url.match(/vimeo\.com\/(\d+)/)) return "embed";
+  if(url.match(/drive\.google\.com\/file\/d\//)) return "embed"; // Google Drive /preview
+  return "external"; // SharePoint, OneDrive, other — blocked by X-Frame-Options
+}
+
+function VideoSheet({url, title, onClose}) {
+  const kind = classifyUrl(url);
+  const embedUrl = getEmbedUrl(url);
+  const [opened, setOpened] = useState(false);
+  useEffect(()=>{ document.body.style.overflow="hidden"; return ()=>{ document.body.style.overflow=""; }; },[]);
+
+  const SheetHeader = () => (
+    <div style={{background:"#1a1a1a",padding:"10px 16px",display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0}}>
+      <div style={{display:"flex",alignItems:"center",gap:8}}>
+        <div style={{width:36,height:4,borderRadius:99,background:"rgba(255,255,255,.2)"}}/>
+        <span style={{fontSize:13,fontWeight:700,color:"#fff"}}>🎬 {title||"Video Guide"}</span>
+      </div>
+      <button onClick={onClose} style={{width:30,height:30,borderRadius:"50%",background:"rgba(255,255,255,.12)",border:"none",color:"#fff",fontSize:16,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
+    </div>
+  );
+
+  return (
+    <>
+      <div className="video-sheet-bg" onClick={onClose}
+        style={{position:"fixed",inset:0,background:"rgba(0,0,0,.65)",zIndex:400,touchAction:"none"}}/>
+      <div className="video-sheet"
+        style={{position:"fixed",bottom:0,left:0,right:0,zIndex:401,background:"#111",
+          borderRadius:"18px 18px 0 0",overflow:"hidden",maxHeight:"85vh",display:"flex",flexDirection:"column"}}>
+        <SheetHeader/>
+
+        {/* ── Inline player: direct video or embeddable URL ── */}
+        {(kind==="video"||kind==="embed")&&(
+          <div style={{flex:1,overflow:"hidden",background:"#000"}}>
+            {kind==="video"?(
+              <video src={url} controls autoPlay playsInline
+                style={{width:"100%",height:"100%",maxHeight:"72vh",display:"block",background:"#000"}}/>
+            ):(
+              <iframe src={embedUrl} style={{width:"100%",height:"100%",minHeight:"56vw",maxHeight:"72vh",border:"none",display:"block"}}
+                allowFullScreen allow="accelerometer;autoplay;encrypted-media;gyroscope;picture-in-picture"/>
+            )}
+          </div>
+        )}
+
+        {/* ── External URL: can't embed — open in new tab fallback ── */}
+        {kind==="external"&&(
+          <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",
+            padding:"24px 20px",background:"#1a1a1a",gap:16,textAlign:"center"}}>
+            <span style={{fontSize:48}}>🎬</span>
+            <div style={{fontSize:15,fontWeight:700,color:"#fff"}}>Video can't play inside the app</div>
+            <div style={{fontSize:12,color:"rgba(255,255,255,.5)",lineHeight:1.6,maxWidth:280}}>
+              This link type (SharePoint / OneDrive / other) blocks in-app playback.{"\n"}
+              Tap below to open it, watch, then come back and tap <strong style={{color:"#3aab5e"}}>Done</strong>.
+            </div>
+            <a href={url} target="_blank" rel="noopener noreferrer"
+              style={{display:"inline-flex",alignItems:"center",gap:8,background:"#3aab5e",
+                color:"#fff",borderRadius:10,padding:"12px 24px",fontWeight:700,fontSize:14,textDecoration:"none"}}>
+              ▶ Open Video
+            </a>
+            {opened&&<div style={{fontSize:11,color:"rgba(255,255,255,.4)"}}>Done? Tap the green button below ↓</div>}
+          </div>
+        )}
+
+        {/* Continue button */}
+        <div style={{padding:"12px 16px",background:"#1a1a1a",flexShrink:0}}>
+          <button className="btn btn--green btn--full" style={{fontSize:14}} onClick={onClose}>
+            ✅ Done watching — continue steps
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
 // ─── VIDEO GUIDE SECTION ──────────────────────────────────────────────────────
 function VideoGuideSection({issueId, guideUrl, onSave, onRemove, adminUnlocked}) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(guideUrl||"");
-  const embedUrl = getEmbedUrl(guideUrl||"");
-  const isVideo = guideUrl&&/\.(mp4|webm|ogg|mov)(\?|$)/i.test(guideUrl);
+  const [sheetOpen, setSheetOpen] = useState(false);
 
   const handleSave = () => {
     if(!draft.trim()) return;
@@ -537,11 +626,14 @@ function VideoGuideSection({issueId, guideUrl, onSave, onRemove, adminUnlocked})
 
   return (
     <div>
+      {/* Sheet */}
+      {sheetOpen&&<VideoSheet url={guideUrl} onClose={()=>setSheetOpen(false)}/>}
+
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
         <div style={{fontSize:10,fontWeight:800,color:"var(--t3)",letterSpacing:".07em"}}>🎬 VIDEO GUIDE</div>
         {guideUrl&&!editing&&adminUnlocked&&(
           <div style={{display:"flex",gap:6}}>
-            <button className="btn" style={{padding:"3px 9px",fontSize:11,background:"#e8f5f3",border:"1px solid #a0d0c8",color:"var(--acc)"}}
+            <button className="btn" style={{padding:"3px 9px",fontSize:11,background:"#eaf6ee",border:"1px solid #a8d9b8",color:"var(--fgf-green)"}}
               onClick={()=>{setDraft(guideUrl);setEditing(true);}}>✏ Change</button>
             <button className="btn" style={{padding:"3px 9px",fontSize:11,background:"#fef2f2",border:"1px solid #fecaca",color:"var(--red)"}}
               onClick={()=>{onRemove(issueId);setDraft("");setEditing(false);}}>× Remove</button>
@@ -551,29 +643,29 @@ function VideoGuideSection({issueId, guideUrl, onSave, onRemove, adminUnlocked})
           <span style={{fontSize:10,color:"var(--t4)",display:"flex",alignItems:"center",gap:3}}>🔐 Admin only</span>
         )}
       </div>
+
       {guideUrl&&!editing&&(
-        embedUrl&&!isVideo?(
-          <iframe src={embedUrl} className="guide-iframe" allowFullScreen title="Video Guide" allow="accelerometer;autoplay;encrypted-media;gyroscope"/>
-        ):isVideo?(
-          <video src={guideUrl} controls style={{width:"100%",borderRadius:8,maxHeight:240,background:"#000",display:"block"}}/>
-        ):(
-          <a href={guideUrl} target="_blank" rel="noopener noreferrer"
-            style={{display:"flex",alignItems:"center",gap:8,padding:"12px 14px",background:"#e8f5f3",border:"1px solid #a0d0c8",borderRadius:8,color:"var(--acc)",textDecoration:"none",fontSize:13,fontWeight:600}}>
-            <span style={{fontSize:18}}>🔗</span>
-            <div>
-              <div>Open Video Guide</div>
-              <div style={{fontSize:10,color:"var(--t3)",fontWeight:400,marginTop:1,maxWidth:280,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{guideUrl}</div>
-            </div>
-          </a>
-        )
+        <button onClick={()=>setSheetOpen(true)}
+          style={{width:"100%",background:"linear-gradient(135deg,#1a1a1a,#2d2d2d)",border:"1px solid #444",borderRadius:10,
+            padding:"14px 16px",display:"flex",alignItems:"center",gap:12,cursor:"pointer",textAlign:"left"}}>
+          <div style={{width:42,height:42,borderRadius:10,background:"var(--fgf-green)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+            <span style={{fontSize:22}}>▶</span>
+          </div>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{fontSize:13,fontWeight:700,color:"#fff",marginBottom:2}}>Watch Video Guide</div>
+            <div style={{fontSize:10,color:"rgba(255,255,255,.45)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{guideUrl}</div>
+          </div>
+          <span style={{fontSize:10,color:"rgba(255,255,255,.35)",flexShrink:0}}>Tap to play</span>
+        </button>
       )}
+
       {editing&&adminUnlocked&&(
         <div>
-          <div style={{fontSize:11,color:"var(--t3)",marginBottom:6}}>Paste a YouTube, SharePoint, or direct video URL (.mp4)</div>
+          <div style={{fontSize:11,color:"var(--t3)",marginBottom:6}}>Paste a YouTube, Google Drive, SharePoint, or .mp4 URL</div>
           <div style={{display:"flex",gap:6}}>
             <input value={draft} onChange={e=>setDraft(e.target.value)} placeholder="https://youtube.com/watch?v=…"
               className="input" style={{flex:1}} onKeyDown={e=>{if(e.key==="Enter")handleSave();}}/>
-            <button className="btn btn--amber" onClick={handleSave} disabled={!draft.trim()}>Save</button>
+            <button className="btn btn--fgf" onClick={handleSave} disabled={!draft.trim()}>Save</button>
             {guideUrl&&<button className="btn btn--ghost" onClick={()=>{setDraft(guideUrl);setEditing(false);}}>Cancel</button>}
           </div>
         </div>
@@ -890,6 +982,7 @@ function DetailPanel({issue, elapsed, steps, isClosed, closedInfo, guideUrl, onT
 function AnalyticsTab({records, issues}) {
   const [from, setFrom] = useState("");
   const [to, setTo]     = useState("");
+  const [watchUrl, setWatchUrl] = useState("");
 
   const filtered = useMemo(()=>{
     let r=[...records];
@@ -938,6 +1031,7 @@ function AnalyticsTab({records, issues}) {
 
   return (
     <div style={{padding:"16px 20px",maxWidth:960,margin:"0 auto"}}>
+      {watchUrl&&<VideoSheet url={watchUrl} title="Escalation Video" onClose={()=>setWatchUrl("")}/>}
       {/* Date filter */}
       <div style={{background:"#ffffff",border:"1px solid var(--border)",borderRadius:10,padding:"12px 16px",marginBottom:16,display:"flex",gap:12,alignItems:"center",flexWrap:"wrap",boxShadow:"var(--shadow-sm)"}}>
         <span style={{fontSize:12,color:"var(--t2)",fontWeight:700}}>📅 Date Range</span>
@@ -1089,10 +1183,10 @@ function AnalyticsTab({records, issues}) {
                     </td>
                     <td style={{padding:"8px 10px"}}>
                       {r.videoUrl?(
-                        <a href={r.videoUrl} target="_blank" rel="noopener noreferrer"
-                          style={{display:"inline-flex",alignItems:"center",gap:4,background:"rgba(239,68,68,.08)",border:"1px solid rgba(239,68,68,.22)",borderRadius:5,padding:"3px 8px",color:"var(--red)",fontSize:11,fontWeight:700,textDecoration:"none",whiteSpace:"nowrap"}}>
+                        <button onClick={()=>setWatchUrl(r.videoUrl)}
+                          style={{display:"inline-flex",alignItems:"center",gap:4,background:"rgba(239,68,68,.08)",border:"1px solid rgba(239,68,68,.22)",borderRadius:5,padding:"3px 8px",color:"var(--red)",fontSize:11,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap"}}>
                           📹 Watch
-                        </a>
+                        </button>
                       ):<span style={{color:"var(--t5)",fontSize:11}}>—</span>}
                     </td>
                   </tr>
