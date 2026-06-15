@@ -433,13 +433,43 @@ function useRecords() {
 }
 
 function useIssues() {
-  const [issues, setIssues] = useState(() => {
-    try{ const r=store.get(ISSUES_KEY); return r?JSON.parse(r):DEFAULT_ISSUES; }catch{ return DEFAULT_ISSUES; }
-  });
+  const [issues, setIssues] = useState(DEFAULT_ISSUES);
+  const [issuesLoaded, setIssuesLoaded] = useState(false);
+  useEffect(() => {
+    const ref = db.ref('issues');
+    ref.once('value', snap => {
+      const val = snap.val();
+      if (val) {
+        // Firebase stores as object keyed by push-id or numeric index — normalise to array
+        const arr = Array.isArray(val) ? val : Object.values(val);
+        setIssues(arr);
+      } else {
+        // First-ever load: seed Firebase with the hardcoded defaults so all devices share them
+        const seed = {};
+        DEFAULT_ISSUES.forEach((iss, i) => { seed[i] = iss; });
+        ref.set(seed);
+        // setIssues stays as DEFAULT_ISSUES
+      }
+      setIssuesLoaded(true);
+    });
+    // Live-sync: if admin on another device saves, everyone sees the update immediately
+    ref.on('value', snap => {
+      const val = snap.val();
+      if (val) {
+        const arr = Array.isArray(val) ? val : Object.values(val);
+        setIssues(arr);
+      }
+    });
+    return () => ref.off();
+  }, []);
   const saveIssues = useCallback(list => {
-    setIssues(list); store.set(ISSUES_KEY, JSON.stringify(list));
-  },[]);
-  return { issues, saveIssues };
+    setIssues(list);
+    // Overwrite the entire /issues node as a plain object (index → issue)
+    const obj = {};
+    list.forEach((iss, i) => { obj[i] = iss; });
+    db.ref('issues').set(obj);
+  }, []);
+  return { issues, saveIssues, issuesLoaded };
 }
 
 function useGuides() {
@@ -1555,7 +1585,7 @@ function PinGate({correctPin, onUnlock}) {
 // ─── MAIN APP ─────────────────────────────────────────────────────────────────
 function App() {
   const { records, addRecord } = useRecords();
-  const { issues, saveIssues } = useIssues();
+  const { issues, saveIssues, issuesLoaded } = useIssues();
   const { guides, saveGuide, removeGuide } = useGuides();
 
   const [escalationEmail, setEscalationEmail] = useState(()=>store.get(ESC_KEY)||"");
@@ -1682,7 +1712,11 @@ function App() {
               </select>
               <span style={{fontSize:11,color:"var(--t4)"}}>{filtered.length} / {issues.length}</span>
             </div>
-            {filtered.length===0?(
+            {!issuesLoaded?(
+              <div style={{textAlign:"center",padding:"60px 20px",color:"var(--t4)"}}>
+                <div style={{fontSize:13,color:"var(--t4)"}}>Loading issues…</div>
+              </div>
+            ):filtered.length===0?(
               <div style={{textAlign:"center",padding:"60px 20px",color:"var(--t4)"}}>
                 <div style={{fontSize:40,marginBottom:12}}>🔍</div>
                 <div style={{fontSize:16,fontWeight:600,color:"var(--t3)"}}>No issues match your search</div>
