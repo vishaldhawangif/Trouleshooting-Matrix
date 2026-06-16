@@ -435,36 +435,31 @@ function useRecords() {
 function useIssues() {
   const [issues, setIssues] = useState(DEFAULT_ISSUES);
   const [issuesLoaded, setIssuesLoaded] = useState(false);
+  const seeded = useRef(false);
   useEffect(() => {
     const ref = db.ref('issues');
-    ref.once('value', snap => {
+    const handler = snap => {
       const val = snap.val();
-      if (val) {
-        // Firebase stores as object keyed by push-id or numeric index — normalise to array
-        const arr = Array.isArray(val) ? val : Object.values(val);
-        setIssues(arr);
+      if (!val) {
+        // Firebase empty — seed with defaults (only once)
+        if (!seeded.current) {
+          seeded.current = true;
+          const seed = {};
+          DEFAULT_ISSUES.forEach((iss, i) => { seed[i] = iss; });
+          ref.set(seed); // triggers handler again with the seeded data
+        }
       } else {
-        // First-ever load: seed Firebase with the hardcoded defaults so all devices share them
-        const seed = {};
-        DEFAULT_ISSUES.forEach((iss, i) => { seed[i] = iss; });
-        ref.set(seed);
-        // setIssues stays as DEFAULT_ISSUES
-      }
-      setIssuesLoaded(true);
-    });
-    // Live-sync: if admin on another device saves, everyone sees the update immediately
-    ref.on('value', snap => {
-      const val = snap.val();
-      if (val) {
-        const arr = Array.isArray(val) ? val : Object.values(val);
+        // Normalise Firebase object → array, filtering out any nulls
+        const arr = (Array.isArray(val) ? val : Object.values(val)).filter(Boolean);
         setIssues(arr);
+        setIssuesLoaded(true);
       }
-    });
-    return () => ref.off();
+    };
+    ref.on('value', handler);
+    return () => ref.off('value', handler);
   }, []);
   const saveIssues = useCallback(list => {
     setIssues(list);
-    // Overwrite the entire /issues node as a plain object (index → issue)
     const obj = {};
     list.forEach((iss, i) => { obj[i] = iss; });
     db.ref('issues').set(obj);
