@@ -5,9 +5,10 @@
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <title>CRE Troubleshoot Matrix — FGF Brands</title>
 </head>
-<body style="margin:0;background:#f2f5f2">
+<body style="margin:0;background:#f4f6fb;overflow-x:hidden">
   <div id="root"></div>
   <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
@@ -16,6 +17,23 @@
   <script src="https://unpkg.com/@babel/standalone@7.23.10/babel.min.js"></script>
   <script type="text/babel" data-presets="react">
 const { useState, useEffect, useRef, useMemo, useCallback, memo } = React;
+
+// ─── SECURITY NOTE ────────────────────────────────────────────────────────────
+// Firebase config values below are intentionally public (per Firebase design).
+// Security is enforced through Firebase Realtime Database Rules, NOT by hiding
+// the config. Required action in Firebase Console → Realtime Database → Rules:
+//
+//   {
+//     "rules": {
+//       ".read":  "auth != null",   // or restrict by domain if using App Check
+//       ".write": "auth != null"
+//     }
+//   }
+//
+// For production floor deployment, also enable Firebase App Check with
+// reCAPTCHA Enterprise to restrict API key usage to authorized domains only.
+// See: https://firebase.google.com/docs/app-check
+// ─────────────────────────────────────────────────────────────────────────────
 
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
 const APP_NAME     = "CRE Troubleshoot Matrix";
@@ -35,9 +53,10 @@ const SEV_CFG = {
 };
 
 const LINE_COLORS = {
-  "Line 1":"#f59e0b","Line 2":"#22c55e","Line 3":"#3b82f6",
-  "Line 4":"#a78bfa","Line 5":"#f97316","All Lines":"#64748b",
+  "SC01":"#f59e0b","L06":"#22c55e","ML10":"#3b82f6",
+  "ML11":"#a78bfa","All Lines":"#64748b",
 };
+const CRE_LINES = ["All Lines","SC01","L06","ML10","ML11"];
 
 const TAG_COLORS = {
   FANUC:"#ef4444", RETRACKER:"#f97316", "INFEED BELT":"#f59e0b",
@@ -260,80 +279,128 @@ function isDirectVideo(url) {
   return /\.(mp4|webm|ogg|mov)(\?|$)/i.test(url);
 }
 
+// ─── INLINE SVG ICON COMPONENT ───────────────────────────────────────────────
+const _IC_PATHS = {
+  search:       <><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></>,
+  "search-x":   <><path d="m13.5 8.5-5 5"/><path d="m8.5 8.5 5 5"/><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></>,
+  grid:         <><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></>,
+  chart:        <><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></>,
+  settings:     <><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></>,
+  package:      <><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></>,
+  "shield-alert":<><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><path d="M12 8v4"/><path d="M12 16h.01"/></>,
+  play:         <><polygon points="6 3 20 12 6 21 6 3"/></>,
+  check:        <><polyline points="20 6 9 17 4 12"/></>,
+  bell:         <><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></>,
+  clipboard:    <><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></>,
+  trash:        <><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></>,
+  calendar:     <><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></>,
+  "trending-up":<><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></>,
+  film:         <><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M7 3v18"/><path d="M3 7h4"/><path d="M3 12h18"/><path d="M3 17h4"/><path d="M17 3v18"/><path d="M17 7h4"/><path d="M17 17h4"/></>,
+  lock:         <><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></>,
+  alert:        <><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></>,
+  video:        <><path d="m22 8-6 4 6 4V8z"/><rect width="14" height="12" x="2" y="6" rx="2" ry="2"/></>,
+};
+const IC = ({n, s=16, c="currentColor", style:st}) => (
+  <svg width={s} height={s} viewBox="0 0 24 24" fill="none"
+    stroke={c} strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round"
+    style={{display:"inline-block",verticalAlign:"middle",flexShrink:0,...(st||{})}}>
+    {_IC_PATHS[n]}
+  </svg>
+);
+
 // ─── GLOBAL CSS ───────────────────────────────────────────────────────────────
 const CSS = `
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --bg:#f2f5f2;--bg-card:#ffffff;--bg-panel:#ffffff;--bg-deep:#eaf2ea;
-  --border:#dce8dc;--border-mid:#c2d9c2;--border-hi:#8fc48f;
-  --t1:#1a1a1a;--t2:#333333;--t3:#666666;--t4:#999999;--t5:#cccccc;
-  --acc:#3aab5e;--acc-d:#2d8a4a;--grn:#3aab5e;--red:#c8102e;--blu:#2563eb;--pur:#7c3aed;--ora:#ea580c;
-  --fgf-green:#3aab5e;--fgf-dark:#1a3a1a;
-  --card-rad:10px;--panel-rad:14px;
-  --shadow-sm:0 1px 3px rgba(0,0,0,.07),0 1px 8px rgba(0,0,0,.05);
-  --shadow-md:0 4px 16px rgba(0,0,0,.09),0 2px 6px rgba(0,0,0,.05);
-  --shadow-lg:0 10px 40px rgba(0,0,0,.12),0 4px 12px rgba(0,0,0,.07);
+  --bg:#f4f6fb;--bg-card:#ffffff;--bg-panel:#ffffff;--bg-deep:#eef1f8;
+  --border:#e4e8f2;--border-mid:#c8d2e8;--border-hi:#8fa4cc;
+  --t1:#0c1a2e;--t2:#1e3050;--t3:#5a6b88;--t4:#8a9ab8;--t5:#c4cce0;
+  --acc:#3aab5e;--acc-d:#278a4a;--acc-light:#eafbf2;
+  --grn:#22c55e;--red:#e53e3e;--blu:#3b82f6;--pur:#7c3aed;--ora:#ea580c;--amb:#d97706;
+  --fgf-green:#3aab5e;--fgf-dark:#0d2d1a;
+  --card-rad:12px;--panel-rad:16px;
+  --shadow-xs:0 1px 2px rgba(12,26,46,.04);
+  --shadow-sm:0 1px 4px rgba(12,26,46,.06),0 2px 10px rgba(12,26,46,.04);
+  --shadow-md:0 4px 14px rgba(12,26,46,.08),0 2px 6px rgba(12,26,46,.04);
+  --shadow-lg:0 8px 32px rgba(12,26,46,.10),0 4px 14px rgba(12,26,46,.05);
+  --shadow-xl:0 20px 60px rgba(12,26,46,.13),0 8px 20px rgba(12,26,46,.07);
 }
-html,body{height:100%}
-body{background:var(--bg);color:var(--t1);font-family:'Inter',system-ui,sans-serif;-webkit-font-smoothing:antialiased;letter-spacing:.01em}
+html,body{height:100%;overflow-x:hidden;max-width:100%}
+body{background:var(--bg);color:var(--t1);font-family:'Inter',system-ui,sans-serif;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;letter-spacing:.01em}
 ::-webkit-scrollbar{width:5px;height:5px}
-::-webkit-scrollbar-track{background:var(--bg-deep)}
+::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:var(--border-mid);border-radius:99px}
 ::-webkit-scrollbar-thumb:hover{background:var(--border-hi)}
 
 @keyframes slideInRight{from{transform:translateX(100%)}to{transform:translateX(0)}}
-@keyframes slideUpFade{from{transform:translateY(32px);opacity:0}to{transform:translateY(0);opacity:1}}
-@keyframes popIn{0%{transform:scale(.4);opacity:0}65%{transform:scale(1.1)}100%{transform:scale(1);opacity:1}}
-@keyframes toastIn{from{transform:translateY(20px) translateX(20px);opacity:0}to{transform:translateY(0) translateX(0);opacity:1}}
-@keyframes toastOut{from{opacity:1;transform:scale(1)}to{opacity:0;transform:scale(.9)}}
-@keyframes shimmer{from{background-position:200% center}to{background-position:-200% center}}
-@keyframes shakeErr{0%,100%{transform:translateX(0)}20%{transform:translateX(-6px)}60%{transform:translateX(6px)}}
-@keyframes expandDown{from{opacity:0;transform:translateY(-12px)}to{opacity:1;transform:translateY(0)}}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+@keyframes slideUpFade{from{transform:translateY(28px);opacity:0}to{transform:translateY(0);opacity:1}}
+@keyframes popIn{0%{transform:scale(.4);opacity:0}65%{transform:scale(1.08)}100%{transform:scale(1);opacity:1}}
+@keyframes toastIn{from{transform:translateY(16px) translateX(16px);opacity:0}to{transform:translateY(0) translateX(0);opacity:1}}
+@keyframes toastOut{from{opacity:1;transform:scale(1)}to{opacity:0;transform:scale(.92)}}
+@keyframes shakeErr{0%,100%{transform:translateX(0)}20%{transform:translateX(-5px)}60%{transform:translateX(5px)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.45}}
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
-@keyframes cardIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+@keyframes cardIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+@keyframes sheetUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+@keyframes expandDown{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
+@keyframes shimmer{from{background-position:200% center}to{background-position:-200% center}}
+@keyframes spin{to{transform:rotate(360deg)}}
 
-.card{background:#ffffff;border:1px solid var(--border);border-radius:var(--card-rad);cursor:pointer;display:flex;flex-direction:column;transition:transform 200ms cubic-bezier(.16,1,.3,1),box-shadow 200ms ease,border-color 200ms ease;user-select:none;animation:cardIn 250ms ease both;overflow:hidden;box-shadow:var(--shadow-sm);}
-.card:hover{transform:translateY(-2px);box-shadow:var(--shadow-md);}
+.card{background:#fff;border:1px solid var(--border);border-radius:var(--card-rad);cursor:pointer;display:flex;flex-direction:column;transition:transform 220ms cubic-bezier(.16,1,.3,1),box-shadow 220ms ease,border-color 200ms ease;user-select:none;animation:cardIn 260ms ease both;overflow:hidden;box-shadow:var(--shadow-sm);}
+.card:hover{transform:translateY(-3px);box-shadow:var(--shadow-lg);}
 .card:focus-visible{outline:2px solid var(--acc);outline-offset:3px;}
-.card.sev-critical{border-top:3px solid #dc2626;}
-.card.sev-critical:hover{box-shadow:0 8px 28px rgba(220,38,38,.12),0 2px 8px rgba(0,0,0,.06);}
-.card.sev-warning{border-top:3px solid #f59e0b;}
-.card.sev-warning:hover{box-shadow:0 8px 28px rgba(245,158,11,.12),0 2px 8px rgba(0,0,0,.06);}
-.card.sev-advisory{border-top:3px solid #2563eb;}
-.card.sev-advisory:hover{box-shadow:0 8px 28px rgba(37,99,235,.10),0 2px 8px rgba(0,0,0,.06);}
-.card-body{padding:14px 16px;flex:1;}
-.card-footer{padding:10px 16px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--bg-deep);}
-.card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(320px,100%),1fr));gap:12px;}
+.card.sev-critical{border-left:4px solid #e53e3e;}
+.card.sev-critical:hover{box-shadow:0 10px 32px rgba(229,62,62,.14),0 3px 12px rgba(12,26,46,.06);}
+.card.sev-warning{border-left:4px solid #f59e0b;}
+.card.sev-warning:hover{box-shadow:0 10px 32px rgba(245,158,11,.14),0 3px 12px rgba(12,26,46,.06);}
+.card.sev-advisory{border-left:4px solid #3b82f6;}
+.card.sev-advisory:hover{box-shadow:0 10px 32px rgba(59,130,246,.12),0 3px 12px rgba(12,26,46,.06);}
+.card-body{padding:16px 18px 12px 16px;flex:1;}
+.card-footer{padding:10px 16px 12px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:linear-gradient(180deg,#f7f9fd 0%,#eef1f8 100%);}
+.card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(320px,100%),1fr));gap:16px;}
+
+/* ── STATS BAR ── */
+.stat-chip{display:inline-flex;align-items:center;gap:7px;background:#fff;border:1px solid var(--border);border-radius:10px;padding:7px 14px;font-size:12px;font-weight:700;box-shadow:var(--shadow-xs);transition:all 160ms ease;cursor:pointer;}
+.stat-chip:hover{box-shadow:var(--shadow-sm);transform:translateY(-1px);}
+
+/* ── FILTER CARD ── */
+.filter-card{background:#fff;border:1px solid var(--border);border-radius:12px;padding:12px 16px;box-shadow:var(--shadow-xs);overflow:hidden;}
+.pill-btn{cursor:pointer;border:1.5px solid var(--border-mid);border-radius:20px;font-size:11px;font-weight:600;padding:5px 14px;background:#fff;color:var(--t3);transition:all 160ms ease;white-space:nowrap;}
+.pill-btn:hover{border-color:var(--border-hi);color:var(--t1);background:var(--bg-deep);}
+.pill-btn.active-crit{background:#e53e3e;border-color:#e53e3e;color:#fff;box-shadow:0 2px 8px rgba(229,62,62,.3);}
+.pill-btn.active-warn{background:#f59e0b;border-color:#f59e0b;color:#fff;box-shadow:0 2px 8px rgba(245,158,11,.3);}
+.pill-btn.active-adv{background:#3b82f6;border-color:#3b82f6;color:#fff;box-shadow:0 2px 8px rgba(59,130,246,.28);}
+.pill-btn.active-grn{background:var(--acc);border-color:var(--acc);color:#fff;box-shadow:0 2px 8px rgba(58,171,94,.28);}
+.pill-btn.active-def{background:var(--t2);border-color:var(--t2);color:#fff;}
 
 .step{border-radius:8px;transition:background 120ms ease;cursor:pointer;}
-.step:hover:not(.step--locked){background:rgba(0,0,0,.025);}
+.step:hover:not(.step--locked){background:rgba(12,26,46,.025);}
 .step--locked{cursor:default;}
 .check-pop{animation:popIn 220ms cubic-bezier(.16,1,.3,1) forwards;}
 
-.btn{cursor:pointer;border:none;border-radius:8px;font-family:inherit;font-weight:700;font-size:13px;padding:9px 16px;transition:all 150ms ease;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;letter-spacing:.01em;}
-.btn:hover{filter:brightness(1.06)}.btn:active{transform:scale(.97);}
+.btn{cursor:pointer;border:none;border-radius:8px;font-family:inherit;font-weight:600;font-size:13px;padding:9px 16px;transition:all 150ms ease;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;letter-spacing:.01em;}
+.btn:hover{filter:brightness(1.05)}.btn:active{transform:scale(.97);}
 .btn:focus-visible{outline:2px solid var(--acc);outline-offset:2px;}
-.btn--ghost{background:#ffffff;border:1px solid var(--border-mid);color:var(--t2);}
+.btn--ghost{background:#fff;border:1.5px solid var(--border-mid);color:var(--t2);}
 .btn--ghost:hover{background:var(--bg-deep);border-color:var(--border-hi);color:var(--t1);}
-.btn--green{background:var(--fgf-green);color:#fff;}
-.btn--amber{background:linear-gradient(135deg,#f59e0b,#d97706);color:#000;box-shadow:0 4px 14px rgba(245,158,11,.28);}
-.btn--amber:hover{box-shadow:0 6px 20px rgba(245,158,11,.36);}
-.btn--red{background:#fef2f2;border:1px solid #fecaca;color:#c8102e;}
-.btn--blue{background:#eaf6ee;border:1px solid #a8d9b8;color:var(--fgf-green);}
-.btn--fgf{background:var(--fgf-green);color:#fff;box-shadow:0 4px 14px rgba(58,171,94,.3);}
-.btn--fgf:hover{box-shadow:0 6px 20px rgba(58,171,94,.4);}
+.btn--green{background:var(--fgf-green);color:#fff;box-shadow:0 2px 10px rgba(58,171,94,.28);}
+.btn--amber{background:linear-gradient(135deg,#f59e0b,#d97706);color:#000;box-shadow:0 3px 12px rgba(245,158,11,.28);}
+.btn--amber:hover{box-shadow:0 5px 18px rgba(245,158,11,.38);}
+.btn--red{background:#fff5f5;border:1.5px solid #fecaca;color:#e53e3e;}
+.btn--blue{background:var(--acc-light);border:1.5px solid rgba(58,171,94,.3);color:var(--fgf-green);}
+.btn--fgf{background:var(--fgf-green);color:#fff;box-shadow:0 3px 12px rgba(58,171,94,.28);}
+.btn--fgf:hover{box-shadow:0 5px 18px rgba(58,171,94,.38);}
 .btn--full{width:100%;justify-content:center;}
-.btn--cta{background:var(--fgf-green);color:#fff;font-size:12px;padding:7px 14px;border-radius:7px;font-weight:700;box-shadow:0 3px 12px rgba(58,171,94,.3);}
-.btn--cta:hover{filter:brightness(1.08);box-shadow:0 6px 20px rgba(58,171,94,.4);}
+.btn--cta{background:var(--fgf-green);color:#fff;font-size:12px;padding:7px 15px;border-radius:8px;font-weight:700;box-shadow:0 2px 10px rgba(58,171,94,.28);letter-spacing:.02em;}
+.btn--cta:hover{filter:brightness(1.07);box-shadow:0 4px 16px rgba(58,171,94,.38);}
 
 input,textarea{font-family:inherit;outline:none;}
-.input{width:100%;background:#ffffff;border:1.5px solid var(--border-mid);border-radius:8px;padding:10px 12px;color:var(--t1);font-size:13px;transition:border-color 150ms,background 150ms,box-shadow 150ms;}
-.input:focus{border-color:var(--acc);background:#f4fbf7;box-shadow:0 0 0 3px rgba(58,171,94,.15);}
+.input{width:100%;background:#fff;border:1.5px solid var(--border-mid);border-radius:8px;padding:10px 13px;color:var(--t1);font-size:14px;transition:border-color 150ms,background 150ms,box-shadow 150ms;}
+.input:focus{border-color:var(--acc);background:#fff;box-shadow:0 0 0 3px rgba(58,171,94,.12);}
 .input--error{border-color:var(--red)!important;animation:shakeErr 320ms ease;}
 select.input{cursor:pointer;}
-input[type=date]::-webkit-calendar-picker-indicator{cursor:pointer;opacity:.7;}
+input[type=date]::-webkit-calendar-picker-indicator{cursor:pointer;opacity:.6;}
 input[type=date]::-webkit-calendar-picker-indicator:hover{opacity:1;}
 
 .panel{animation:slideInRight 300ms cubic-bezier(.16,1,.3,1) forwards;}
@@ -343,52 +410,207 @@ input[type=date]::-webkit-calendar-picker-indicator:hover{opacity:1;}
 .confirm-tile{animation:popIn 320ms cubic-bezier(.16,1,.3,1) forwards;}
 
 .drop-zone{border:2px dashed var(--border-mid);border-radius:10px;padding:24px;text-align:center;cursor:pointer;transition:border-color 150ms,background 150ms;}
-.drop-zone:hover{border-color:var(--fgf-green);background:rgba(58,171,94,.04);}
+.drop-zone:hover{border-color:var(--fgf-green);background:rgba(58,171,94,.03);}
 
 .guide-iframe{width:100%;aspect-ratio:16/9;border:none;border-radius:10px;background:#000;}
-@keyframes sheetUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
 .video-sheet{animation:sheetUp 280ms cubic-bezier(.16,1,.3,1) forwards;}
 .video-sheet-bg{animation:fadeIn 200ms ease forwards;}
 
-.app-header{background:#ffffff;border-bottom:3px solid var(--fgf-green);position:sticky;top:0;z-index:100;box-shadow:0 2px 12px rgba(0,0,0,.08);}
+/* ── HEADER — clean white, single border ── */
+.app-header{background:#fff;border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;box-shadow:0 1px 10px rgba(12,26,46,.06);}
 
 .search-wrap{position:relative;}
-.search-icon{position:absolute;left:13px;top:50%;transform:translateY(-50%);color:var(--t4);pointer-events:none;}
-.search-clear{position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--t3);cursor:pointer;font-size:18px;line-height:1;padding:2px;border-radius:3px;}
+.search-icon{position:absolute;left:13px;top:50%;transform:translateY(-50%);color:var(--t4);pointer-events:none;font-size:14px;}
+.search-clear{position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--t4);cursor:pointer;font-size:17px;line-height:1;padding:2px;border-radius:3px;}
 .search-clear:hover{color:var(--t1);}
 
-.nav-tab{cursor:pointer;padding:10px 16px;font-size:13px;font-weight:600;border-radius:0;transition:all 150ms ease;border:none;border-bottom:3px solid transparent;background:transparent;color:var(--t3);letter-spacing:.02em;margin-bottom:-3px;}
-.nav-tab:hover{color:var(--fgf-green);border-bottom-color:rgba(58,171,94,.4);}
-.nav-tab.active{color:var(--fgf-green);border-bottom-color:var(--fgf-green);font-weight:700;}
+/* ── NAV — pill active ── */
+.nav-tab{cursor:pointer;padding:7px 15px;font-size:13px;font-weight:500;border-radius:8px;transition:all 160ms ease;border:none;background:transparent;color:var(--t4);letter-spacing:.01em;margin:0 1px;}
+.nav-tab:hover{color:var(--t2);background:var(--bg-deep);}
+.nav-tab.active{color:#fff;background:var(--fgf-green);font-weight:700;box-shadow:0 2px 10px rgba(58,171,94,.3);}
 
-.kpi{background:#ffffff;border:1px solid var(--border);border-radius:var(--card-rad);padding:14px 16px;box-shadow:var(--shadow-sm);}
-
+.kpi{background:#fff;border:1px solid var(--border);border-radius:var(--card-rad);padding:16px 18px;box-shadow:var(--shadow-sm);}
 .ring-circle{transition:stroke-dashoffset 400ms ease,stroke 400ms ease;}
 
 @media(min-width:700px){.panel-body{display:flex;}}
-.panel-col-left{flex:1;min-width:0;overflow-y:auto;padding:18px 20px;border-right:1px solid var(--border);}
-.panel-col-right{width:280px;flex-shrink:0;overflow-y:auto;padding:18px 20px;background:#f7fdf8;border-left:1px solid var(--border);}
+.panel-col-left{flex:1;min-width:0;overflow-y:auto;padding:20px 22px;border-right:1px solid var(--border);}
+.panel-col-right{width:292px;flex-shrink:0;overflow-y:auto;padding:20px 22px;background:#fafbfe;border-left:1px solid var(--border);}
 @media(max-width:699px){
   .panel-col-left,.panel-col-right{padding:14px 16px;overflow-y:visible;}
   .panel-col-right{width:100%;border-top:1px solid var(--border);border-right:none;}
   .panel-body{overflow-y:auto!important;}
 }
 
-/* ── MOBILE ── */
-@media(max-width:599px){
-  .card-grid{grid-template-columns:1fr!important;}
-  .nav-tab{padding:8px 10px;font-size:11px;letter-spacing:0;}
-  .btn--cta{font-size:11px;padding:7px 10px;}
-  .kpi{padding:10px 12px;}
-  .panel-col-right{padding:12px 14px;}
-  .panel-col-left{padding:12px 14px;}
-  .panel-mobile-hint{display:flex!important;}
+/* ════════════════════════════════════════
+   LEFT SIDEBAR LAYOUT
+════════════════════════════════════════ */
+.app-layout{display:flex;min-height:100vh;overflow-x:hidden;}
+
+.sidebar{
+  width:220px;flex-shrink:0;
+  background:#0d2018;
+  display:flex;flex-direction:column;
+  position:fixed;top:0;left:0;bottom:0;
+  z-index:100;overflow-y:auto;
+  border-right:1px solid rgba(255,255,255,.06);
+  box-shadow:4px 0 24px rgba(0,0,0,.18);
 }
-@media(min-width:600px){.panel-mobile-hint{display:none!important;}}
+.sidebar-logo{
+  padding:22px 18px 18px;
+  border-bottom:1px solid rgba(255,255,255,.07);
+  flex-shrink:0;
+}
+.sidebar-nav{flex:1;padding:14px 10px;overflow-y:auto;}
+.sidebar-section-label{
+  font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;
+  color:rgba(255,255,255,.50);padding:0 12px;margin:0 0 6px;display:block;
+}
+.nav-item{
+  display:flex;align-items:center;gap:10px;padding:10px 13px;
+  border-radius:8px;cursor:pointer;width:100%;border:none;
+  background:transparent;text-align:left;
+  color:rgba(255,255,255,.65);font-size:13px;font-weight:500;
+  font-family:inherit;letter-spacing:.01em;
+  transition:all 160ms ease;margin-bottom:2px;
+  position:relative;
+}
+.nav-item:hover{background:rgba(255,255,255,.07);color:rgba(255,255,255,.85);}
+.nav-item.active{
+  background:rgba(58,171,94,.18);
+  color:#fff;font-weight:700;
+  box-shadow:inset 3px 0 0 #3aab5e;
+}
+.nav-item .nav-icon{font-size:17px;width:22px;text-align:center;flex-shrink:0;line-height:1;}
+.sidebar-footer{
+  padding:16px 18px;
+  border-top:1px solid rgba(255,255,255,.07);
+  flex-shrink:0;
+}
+
+.main-wrap{margin-left:220px;min-height:100vh;display:flex;flex-direction:column;overflow-x:hidden;max-width:calc(100vw - 220px);}
+
+/* ── MOBILE BOTTOM NAV ── */
+.mobile-nav{display:none;}
+@media(max-width:700px){
+  .sidebar{display:none;}
+  .main-wrap{margin-left:0;padding-bottom:68px;}
+  .mobile-nav{
+    display:flex;position:fixed;bottom:0;left:0;right:0;
+    background:#0d2018;border-top:1px solid rgba(255,255,255,.1);
+    z-index:200;padding:6px 0 10px;
+  }
+  .mobile-nav-btn{
+    flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;
+    background:none;border:none;cursor:pointer;padding:4px 0;font-family:inherit;
+  }
+  .mobile-nav-btn .mnav-icon{font-size:21px;line-height:1;}
+  .mobile-nav-btn .mnav-label{font-size:10px;font-weight:600;letter-spacing:.02em;}
+}
+
+/* ════════════════════════════════════════
+   MOBILE TOP HEADER
+════════════════════════════════════════ */
+.mobile-header{
+  display:none;
+  background:#0d2018;
+  position:sticky;top:0;z-index:150;
+  box-shadow:0 2px 20px rgba(0,0,0,.35);
+}
+.mobile-header-bar{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:12px 16px 8px;
+}
+.mobile-tab-row{
+  display:flex;padding:0 8px;
+  border-top:1px solid rgba(255,255,255,.07);
+}
+.mobile-tab-btn{
+  flex:1;padding:10px 4px 8px;
+  background:none;border:none;cursor:pointer;font-family:inherit;
+  font-size:13px;font-weight:500;letter-spacing:.01em;
+  color:rgba(255,255,255,.45);
+  border-bottom:2px solid transparent;
+  transition:all 160ms ease;
+}
+.mobile-tab-btn.active{color:#fff;font-weight:700;border-bottom-color:#3aab5e;}
+
+/* ── PANEL: full-screen slide-up on mobile ── */
+@keyframes sheetUpFull{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.panel-drag-handle{
+  display:none;width:44px;height:4px;
+  background:rgba(0,0,0,.13);border-radius:99px;
+  margin:10px auto 0;flex-shrink:0;
+}
+
+/* ── MOBILE CONTENT ── */
+@media(max-width:700px){
+  /* Show mobile header, hide sidebar + bottom nav */
+  .mobile-header{display:block;}
+  .sidebar{display:none;}
+  .main-wrap{margin-left:0;padding-bottom:0;}
+  .mobile-nav{display:none !important;}
+
+  /* Full-screen bottom sheet for detail panel */
+  .panel{
+    top:auto !important;bottom:0 !important;
+    right:0 !important;left:0 !important;
+    width:100% !important;max-width:100% !important;height:94vh !important;
+    border-radius:20px 20px 0 0 !important;
+    border-left:none !important;
+    animation:sheetUpFull 320ms cubic-bezier(.16,1,.3,1) forwards !important;
+  }
+  .panel-drag-handle{display:block;}
+
+  /* Bigger inputs for floor use */
+  .input{font-size:16px !important;padding:13px 14px !important;}
+  select.input{font-size:16px !important;padding:13px 14px !important;}
+  /* Keep left padding on search so icon doesn't overlap text */
+  .search-wrap .input{padding-left:40px !important;}
+
+  /* Bigger CTA buttons */
+  .btn--cta{font-size:14px !important;padding:11px 18px !important;border-radius:10px !important;}
+  .btn--green,.btn--amber{font-size:14px !important;padding:14px !important;}
+
+  /* Panel cols stack vertically */
+  .panel-col-left{padding:14px 16px;overflow-y:visible;}
+  .panel-col-right{width:100%;border-top:1px solid var(--border);border-right:none;padding:14px 16px;background:#fafbfe;}
+  .panel-body{overflow-y:auto !important;}
+  .panel-mobile-hint{display:none !important;}
+
+  /* Filter card — wrap pills on mobile */
+  .filter-pill-row{display:flex !important;gap:6px !important;flex-wrap:wrap !important;overflow-x:visible !important;}
+
+  /* Stats bar — 2×2 grid on mobile */
+  .stats-bar-wrap{display:grid !important;grid-template-columns:1fr 1fr !important;overflow:visible !important;padding-bottom:0 !important;}
+  .stat-chip-total{grid-column:1 / -1 !important;flex-direction:row !important;align-items:center !important;justify-content:space-between !important;}
+
+  /* Filter row 1 — stack search above line select */
+  .filter-row1{flex-direction:column !important;gap:8px !important;}
+  .filter-row1 select.input{width:100% !important;min-width:0 !important;}
+
+  /* Main wrap full width */
+  .main-wrap{overflow-x:hidden !important;max-width:100vw !important;}
+
+  /* Cards — full width, bigger tap area */
+  .card-grid{grid-template-columns:1fr !important;gap:12px !important;}
+  .card-body{padding:16px 16px 12px !important;}
+  .card-footer{padding:12px 16px 14px !important;}
+
+  /* KPI */
+  .kpi{padding:12px 14px;}
+}
+
+@media(min-width:701px){.panel-mobile-hint{display:none !important;}}
 @media(max-width:420px){
-  .nav-tab{padding:7px 7px;font-size:10px;}
-  .btn{font-size:12px;padding:8px 12px;}
-  .input{font-size:16px;}/* 16px prevents iOS auto-zoom on focus */
+  .btn{font-size:13px;padding:10px 14px;}
+  .mobile-tab-btn{font-size:12px;}
+}
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{
+    animation-duration:0.01ms !important;
+    animation-iteration-count:1 !important;
+    transition-duration:0.01ms !important;
+  }
 }
 `;
 
@@ -507,7 +729,12 @@ function useEscClose(handler, enabled=true) {
 // ─── ATOMS ────────────────────────────────────────────────────────────────────
 const SevBadge = memo(({sev}) => {
   const c = SEV_CFG[sev]||SEV_CFG.advisory;
-  return <span style={{background:c.bg,color:c.color,border:`1px solid ${c.border}`,borderRadius:4,fontSize:10,fontWeight:800,padding:"2px 7px",letterSpacing:".06em",flexShrink:0}}>{c.label}</span>;
+  return (
+    <span style={{display:"inline-flex",alignItems:"center",gap:4,background:c.bg,color:c.color,border:`1px solid ${c.border}`,borderRadius:20,fontSize:10,fontWeight:700,padding:"3px 9px 3px 7px",letterSpacing:".04em",flexShrink:0}}>
+      <span style={{width:5,height:5,borderRadius:"50%",background:c.color,flexShrink:0,display:"inline-block"}}/>
+      {c.label}
+    </span>
+  );
 });
 
 const TagBadge = memo(({tag}) => {
@@ -549,7 +776,7 @@ function Toast({toast, onDone}) {
         border:`1px solid ${isRes?"rgba(34,197,94,.35)":"rgba(245,158,11,.35)"}`,
         borderRadius:10,padding:"12px 16px",display:"flex",alignItems:"center",gap:12,
         boxShadow:"0 8px 32px rgba(0,0,0,.4)",maxWidth:320}}>
-      <span style={{fontSize:22}}>{isRes?"✅":"🔔"}</span>
+      <span style={{lineHeight:0}}>{isRes?<IC n="check" s={22} c="#22c55e"/>:<IC n="bell" s={22} c="#f59e0b"/>}</span>
       <div>
         <div style={{fontSize:13,fontWeight:700,color:isRes?"#22c55e":"#f59e0b"}}>{isRes?"Issue Resolved":"Issue Escalated"}</div>
         <div style={{fontSize:11,color:"var(--t3)",marginTop:1}}>{toast.symptom.length>42?toast.symptom.slice(0,42)+"…":toast.symptom}</div>
@@ -580,7 +807,7 @@ function VideoSheet({url, title, onClose}) {
     <div style={{background:"#1a1a1a",padding:"10px 16px",display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0}}>
       <div style={{display:"flex",alignItems:"center",gap:8}}>
         <div style={{width:36,height:4,borderRadius:99,background:"rgba(255,255,255,.2)"}}/>
-        <span style={{fontSize:13,fontWeight:700,color:"#fff"}}>🎬 {title||"Video Guide"}</span>
+        <span style={{fontSize:13,fontWeight:700,color:"#fff",display:"inline-flex",alignItems:"center",gap:6}}><IC n="video" s={13} c="#fff"/> {title||"Video Guide"}</span>
       </div>
       <button onClick={onClose} style={{width:30,height:30,borderRadius:"50%",background:"rgba(255,255,255,.12)",border:"none",color:"#fff",fontSize:16,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
     </div>
@@ -612,7 +839,7 @@ function VideoSheet({url, title, onClose}) {
         {kind==="external"&&(
           <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",
             padding:"24px 20px",background:"#1a1a1a",gap:16,textAlign:"center"}}>
-            <span style={{fontSize:48}}>🎬</span>
+            <IC n="video" s={48} c="rgba(255,255,255,.6)"/>
             <div style={{fontSize:15,fontWeight:700,color:"#fff"}}>Video can't play inside the app</div>
             <div style={{fontSize:12,color:"rgba(255,255,255,.5)",lineHeight:1.6,maxWidth:280}}>
               This link type (SharePoint / OneDrive / other) blocks in-app playback.{"\n"}
@@ -621,7 +848,7 @@ function VideoSheet({url, title, onClose}) {
             <a href={url} target="_blank" rel="noopener noreferrer"
               style={{display:"inline-flex",alignItems:"center",gap:8,background:"#3aab5e",
                 color:"#fff",borderRadius:10,padding:"12px 24px",fontWeight:700,fontSize:14,textDecoration:"none"}}>
-              ▶ Open Video
+              <IC n="play" s={14}/> Open Video
             </a>
             {opened&&<div style={{fontSize:11,color:"rgba(255,255,255,.4)"}}>Done? Tap the green button below ↓</div>}
           </div>
@@ -630,7 +857,7 @@ function VideoSheet({url, title, onClose}) {
         {/* Continue button */}
         <div style={{padding:"12px 16px",background:"#1a1a1a",flexShrink:0}}>
           <button className="btn btn--green btn--full" style={{fontSize:14}} onClick={onClose}>
-            ✅ Done watching — continue steps
+            <IC n="check" s={14}/> Done watching — continue steps
           </button>
         </div>
       </div>
@@ -655,7 +882,7 @@ function VideoGuideSection({issueId, guideUrl, onSave, onRemove, adminUnlocked})
       {sheetOpen&&<VideoSheet url={guideUrl} onClose={()=>setSheetOpen(false)}/>}
 
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
-        <div style={{fontSize:10,fontWeight:800,color:"var(--t3)",letterSpacing:".07em"}}>🎬 VIDEO GUIDE</div>
+        <div style={{fontSize:10,fontWeight:800,color:"var(--t3)",letterSpacing:".07em",display:"flex",alignItems:"center",gap:5}}><IC n="video" s={11} c="var(--t3)"/> VIDEO GUIDE</div>
         {guideUrl&&!editing&&adminUnlocked&&(
           <div style={{display:"flex",gap:6}}>
             <button className="btn" style={{padding:"3px 9px",fontSize:11,background:"#eaf6ee",border:"1px solid #a8d9b8",color:"var(--fgf-green)"}}
@@ -665,7 +892,7 @@ function VideoGuideSection({issueId, guideUrl, onSave, onRemove, adminUnlocked})
           </div>
         )}
         {guideUrl&&!editing&&!adminUnlocked&&(
-          <span style={{fontSize:10,color:"var(--t4)",display:"flex",alignItems:"center",gap:3}}>🔐 Admin only</span>
+          <span style={{fontSize:10,color:"var(--t4)",display:"flex",alignItems:"center",gap:3}}><IC n="lock" s={10} c="var(--t4)"/> Admin only</span>
         )}
       </div>
 
@@ -674,7 +901,7 @@ function VideoGuideSection({issueId, guideUrl, onSave, onRemove, adminUnlocked})
           style={{width:"100%",background:"linear-gradient(135deg,#1a1a1a,#2d2d2d)",border:"1px solid #444",borderRadius:10,
             padding:"14px 16px",display:"flex",alignItems:"center",gap:12,cursor:"pointer",textAlign:"left"}}>
           <div style={{width:42,height:42,borderRadius:10,background:"var(--fgf-green)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-            <span style={{fontSize:22}}>▶</span>
+            <IC n="play" s={20} c="#fff"/>
           </div>
           <div style={{flex:1,minWidth:0}}>
             <div style={{fontSize:13,fontWeight:700,color:"#fff",marginBottom:2}}>Watch Video Guide</div>
@@ -706,37 +933,42 @@ function VideoGuideSection({issueId, guideUrl, onSave, onRemove, adminUnlocked})
 }
 
 // ─── ISSUE CARD ───────────────────────────────────────────────────────────────
-const CAT_ICON = {equipment:"⚙️", quality:"🍞", safety:"🦺"};
+const CAT_ICON = {
+  equipment: <IC n="settings" s={16} c="var(--t3)"/>,
+  quality:   <IC n="package"  s={16} c="var(--t3)"/>,
+  safety:    <IC n="shield-alert" s={16} c="var(--t3)"/>,
+};
 
 const IssueCard = memo(({issue, logCount, hasGuide, onClick}) => (
   <div className={`card sev-${issue.severity}`} tabIndex={0}
     onClick={onClick} onKeyDown={e=>{if(e.key==="Enter"||e.key===" ")onClick();}}>
     <div className="card-body">
-      <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:10}}>
-        <div style={{display:"flex",alignItems:"center",gap:5,flexWrap:"wrap",flex:1,minWidth:0}}>
-          <SevBadge sev={issue.severity}/>
-          <TagBadge tag={issue.tag}/>
-          <LineBadge line={issue.line}/>
-        </div>
-        <span style={{fontSize:22,flexShrink:0,marginLeft:8,opacity:.7}}>{CAT_ICON[issue.category]||"🔧"}</span>
+      {/* Badges row */}
+      <div style={{display:"flex",alignItems:"center",gap:5,flexWrap:"wrap",marginBottom:10}}>
+        <SevBadge sev={issue.severity}/>
+        <TagBadge tag={issue.tag}/>
+        <LineBadge line={issue.line}/>
+        <span style={{marginLeft:"auto",opacity:.55,flexShrink:0,lineHeight:0}}>{CAT_ICON[issue.category]||<IC n="settings" s={16} c="var(--t3)"/>}</span>
       </div>
-      <div style={{fontSize:14,fontWeight:700,color:"var(--t1)",lineHeight:1.5,marginBottom:8}}>{issue.symptom}</div>
-      <div style={{fontSize:12,color:"var(--t3)",lineHeight:1.55,display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical",overflow:"hidden"}}>{issue.cause}</div>
+      {/* Title */}
+      <div style={{fontSize:14,fontWeight:700,color:"var(--t1)",lineHeight:1.5,marginBottom:7,letterSpacing:"-.01em"}}>{issue.symptom}</div>
+      {/* Cause preview */}
+      <div style={{fontSize:12,color:"var(--t3)",lineHeight:1.6,display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical",overflow:"hidden"}}>{issue.cause}</div>
     </div>
     <div className="card-footer">
-      <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
-        <span style={{display:"flex",alignItems:"center",gap:4,fontSize:11,color:"var(--t4)",fontWeight:600}}>
-          <span style={{width:16,height:16,borderRadius:4,background:"rgba(255,255,255,.06)",border:"1px solid var(--border-mid)",display:"inline-flex",alignItems:"center",justifyContent:"center",fontSize:9,fontWeight:800,color:"var(--t3)"}}>{issue.steps.length}</span>
-          steps
+      <div style={{display:"flex",gap:7,alignItems:"center",flexWrap:"wrap"}}>
+        {/* Step count */}
+        <span style={{display:"inline-flex",alignItems:"center",gap:4,background:"var(--bg-deep)",border:"1px solid var(--border)",borderRadius:6,padding:"2px 8px",fontSize:10,fontWeight:700,color:"var(--t3)"}}>
+          {issue.steps.length} steps
         </span>
         {logCount>0&&(
-          <span style={{background:logCount>2?"rgba(239,68,68,.1)":"rgba(245,158,11,.08)",color:logCount>2?"#ef4444":"#f59e0b",border:`1px solid ${logCount>2?"rgba(239,68,68,.25)":"rgba(245,158,11,.2)"}`,borderRadius:5,fontSize:10,fontWeight:700,padding:"2px 7px"}}>
-            📋 {logCount}× logged
+          <span style={{background:logCount>2?"rgba(229,62,62,.09)":"rgba(245,158,11,.09)",color:logCount>2?"#e53e3e":"#d97706",border:`1px solid ${logCount>2?"rgba(229,62,62,.2)":"rgba(245,158,11,.2)"}`,borderRadius:6,fontSize:10,fontWeight:700,padding:"2px 8px"}}>
+            🔁 {logCount}×
           </span>
         )}
-        {hasGuide&&<span style={{background:"rgba(58,171,94,.08)",color:"var(--acc)",border:"1px solid rgba(58,171,94,.22)",borderRadius:5,fontSize:10,fontWeight:700,padding:"2px 7px"}}>🎬 Guide</span>}
+        {hasGuide&&<span style={{background:"rgba(58,171,94,.08)",color:"var(--acc)",border:"1px solid rgba(58,171,94,.2)",borderRadius:6,fontSize:10,fontWeight:700,padding:"2px 8px",display:"inline-flex",alignItems:"center",gap:3}}><IC n="play" s={10} c="var(--acc)"/> Guide</span>}
       </div>
-      <button className="btn btn--cta" onClick={e=>{e.stopPropagation();onClick();}}>Troubleshoot →</button>
+      <button className="btn btn--cta" style={{fontSize:12,padding:"7px 14px"}} onClick={e=>{e.stopPropagation();onClick();}}>Troubleshoot →</button>
     </div>
   </div>
 ));
@@ -744,10 +976,10 @@ const IssueCard = memo(({issue, logCount, hasGuide, onClick}) => (
 // ─── DETAIL PANEL ─────────────────────────────────────────────────────────────
 function DetailPanel({issue, elapsed, steps, isClosed, closedInfo, guideUrl, onToggleStep, onSubmit, onClose, onSaveGuide, onRemoveGuide, escalationEmail, adminUnlocked}) {
   const opRef=useRef(null); const signOffRef=useRef(null);
-  const [opName,setOpName]=useState(""); const [sku,setSku]=useState("");
+  const [opName,setOpName]=useState(""); const [lineSelected,setLineSelected]=useState(""); const [sku,setSku]=useState("");
   const [notes,setNotes]=useState(""); const [videoFile,setVideoFile]=useState(null);
   const [uploading,setUploading]=useState(false); const [uploadPct,setUploadPct]=useState(0);
-  const [opErr,setOpErr]=useState(false); const [errKey,setErrKey]=useState(0);
+  const [opErr,setOpErr]=useState(false); const [lineErr,setLineErr]=useState(false); const [errKey,setErrKey]=useState(0);
   const videoInputRef=useRef(null);
 
   const totalSteps=issue.steps.length; const doneCount=steps.size;
@@ -755,10 +987,11 @@ function DetailPanel({issue, elapsed, steps, isClosed, closedInfo, guideUrl, onT
 
   useEscClose(onClose);
   useEffect(()=>{ if(allDone&&!isClosed&&signOffRef.current){ signOffRef.current.scrollIntoView({behavior:"smooth",block:"nearest"}); setTimeout(()=>opRef.current?.focus(),350); } },[allDone]);
-  useEffect(()=>{ setOpName(""); setSku(""); setNotes(""); setVideoFile(null); setUploadPct(0); setOpErr(false); },[issue.id]);
+  useEffect(()=>{ setOpName(""); setLineSelected(""); setSku(""); setNotes(""); setVideoFile(null); setUploadPct(0); setOpErr(false); setLineErr(false); },[issue.id]);
 
   const handleSubmit = outcome => {
     if(!opName.trim()){ setOpErr(true); setErrKey(k=>k+1); opRef.current?.focus(); return; }
+    if(!lineSelected){ setLineErr(true); return; }
     const skuVal=sku.trim()?sku.trim().toUpperCase():"N/A";
     const elapsed_snap=elapsed; // capture current elapsed
     if(outcome==="escalated"&&videoFile){
@@ -768,11 +1001,11 @@ function DetailPanel({issue, elapsed, steps, isClosed, closedInfo, guideUrl, onT
       const task=ref.put(videoFile);
       task.on("state_changed",snap=>{ setUploadPct(Math.round(snap.bytesTransferred/snap.totalBytes*100)); },
         ()=>{ setUploading(false); alert("Upload failed. Check your Firebase Storage rules."); },
-        ()=>{ ref.getDownloadURL().then(url=>{ setUploading(false); onSubmit({outcome,operator:opName.trim(),sku:skuVal,notes:notes.trim(),videoUrl:url,timeToFix:fmtT(elapsed_snap)}); }); }
+        ()=>{ ref.getDownloadURL().then(url=>{ setUploading(false); onSubmit({outcome,operator:opName.trim(),line:lineSelected,sku:skuVal,notes:notes.trim(),videoUrl:url,timeToFix:fmtT(elapsed_snap)}); }); }
       );
       return;
     }
-    onSubmit({outcome, operator:opName.trim(), sku:skuVal, notes:notes.trim(), videoUrl:"", timeToFix:fmtT(elapsed_snap)});
+    onSubmit({outcome, operator:opName.trim(), line:lineSelected, sku:skuVal, notes:notes.trim(), videoUrl:"", timeToFix:fmtT(elapsed_snap)});
     if(outcome==="escalated"&&escalationEmail&&escalationEmail.trim()){
       const ejsKey=store.get(EJS_KEY_KEY);
       const ejsService=store.get(EJS_SERVICE_KEY);
@@ -816,6 +1049,9 @@ function DetailPanel({issue, elapsed, steps, isClosed, closedInfo, guideUrl, onT
       <div className="panel" role="dialog" aria-modal="true"
         style={{position:"fixed",top:0,right:0,width:"min(820px,100vw)",height:"100vh",background:"var(--bg-panel)",borderLeft:"1px solid var(--border)",zIndex:201,display:"flex",flexDirection:"column",overflow:"hidden",WebkitOverflowScrolling:"touch"}}>
 
+        {/* Drag handle — visible on mobile only */}
+        <div className="panel-drag-handle"/>
+
         {/* Header */}
         <div style={{background:"#ffffff",borderBottom:"2px solid #c8d9c2",padding:"12px 16px",flexShrink:0,boxShadow:"0 2px 8px rgba(0,0,0,.06)"}}>
           <div style={{display:"flex",gap:10,alignItems:"flex-start"}}>
@@ -854,7 +1090,7 @@ function DetailPanel({issue, elapsed, steps, isClosed, closedInfo, guideUrl, onT
             <div style={{display:"flex",flexDirection:"column",gap:14}}>
               {/* Root cause */}
               <div style={{background:"linear-gradient(135deg,rgba(58,171,94,.07),rgba(58,171,94,.02))",borderLeft:"3px solid var(--fgf-green)",borderRadius:8,padding:"12px 16px"}}>
-                <div style={{fontSize:10,fontWeight:800,color:"var(--acc)",letterSpacing:".08em",marginBottom:6}}>🔍 ROOT CAUSE</div>
+                <div style={{fontSize:10,fontWeight:800,color:"var(--acc)",letterSpacing:".08em",marginBottom:6,display:"flex",alignItems:"center",gap:5}}><IC n="search" s={11} c="var(--acc)"/> ROOT CAUSE</div>
                 <p style={{fontSize:13,color:"var(--t2)",lineHeight:1.7,margin:0}}>{issue.cause}</p>
               </div>
               {/* Video */}
@@ -866,7 +1102,7 @@ function DetailPanel({issue, elapsed, steps, isClosed, closedInfo, guideUrl, onT
               {/* Steps */}
               <div>
                 <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
-                  <div style={{fontSize:10,fontWeight:800,color:"var(--t3)",letterSpacing:".08em"}}>📋 CORRECTIVE ACTIONS</div>
+                  <div style={{fontSize:10,fontWeight:800,color:"var(--t3)",letterSpacing:".08em",display:"flex",alignItems:"center",gap:5}}><IC n="clipboard" s={11} c="var(--t3)"/> CORRECTIVE ACTIONS</div>
                   <div style={{fontSize:11,color:"var(--t4)"}}>{doneCount}/{totalSteps} done</div>
                 </div>
                 <div style={{display:"flex",flexDirection:"column",gap:5}}>
@@ -889,7 +1125,7 @@ function DetailPanel({issue, elapsed, steps, isClosed, closedInfo, guideUrl, onT
               </div>
               {issue.escalate&&issue.escalateNote&&(
                 <div style={{background:"rgba(245,158,11,.07)",border:"1px solid rgba(245,158,11,.22)",borderRadius:8,padding:"11px 13px"}}>
-                  <div style={{fontSize:10,fontWeight:800,color:"var(--acc)",letterSpacing:".06em",marginBottom:5}}>⚠ ESCALATION NOTE</div>
+                  <div style={{fontSize:10,fontWeight:800,color:"var(--acc)",letterSpacing:".06em",marginBottom:5,display:"flex",alignItems:"center",gap:5}}><IC n="alert" s={11} c="var(--acc)"/> ESCALATION NOTE</div>
                   <p style={{fontSize:12,color:"var(--t2)",lineHeight:1.65,margin:0}}>{issue.escalateNote}</p>
                 </div>
               )}
@@ -903,7 +1139,7 @@ function DetailPanel({issue, elapsed, steps, isClosed, closedInfo, guideUrl, onT
               <div className="confirm-tile"
                 style={{background:closedInfo.outcome==="resolved"?"rgba(34,197,94,.07)":"rgba(245,158,11,.08)",border:`1px solid ${closedInfo.outcome==="resolved"?"rgba(34,197,94,.28)":"rgba(245,158,11,.28)"}`,borderRadius:10,padding:16}}>
                 <div style={{textAlign:"center",marginBottom:14}}>
-                  <span style={{fontSize:36}}>{closedInfo.outcome==="resolved"?"✅":"🔔"}</span>
+                  <span style={{lineHeight:0}}>{closedInfo.outcome==="resolved"?<IC n="check" s={36} c="#22c55e"/>:<IC n="bell" s={36} c="#f59e0b"/>}</span>
                   <div style={{fontSize:15,fontWeight:800,marginTop:6,color:closedInfo.outcome==="resolved"?"#22c55e":"#f59e0b"}}>
                     {closedInfo.outcome==="resolved"?"Issue Resolved":"Issue Escalated"}
                   </div>
@@ -920,12 +1156,21 @@ function DetailPanel({issue, elapsed, steps, isClosed, closedInfo, guideUrl, onT
               </div>
             ):(
               <div ref={signOffRef} style={{display:"flex",flexDirection:"column",gap:12}}>
-                <div style={{fontSize:10,fontWeight:800,color:"var(--t3)",letterSpacing:".08em"}}>📋 SIGN-OFF & RECORD</div>
+                <div style={{fontSize:10,fontWeight:800,color:"var(--t3)",letterSpacing:".08em",display:"flex",alignItems:"center",gap:5}}><IC n="clipboard" s={11} c="var(--t3)"/> SIGN-OFF & RECORD</div>
                 <div>
                   <label style={{fontSize:11,color:"var(--t3)",display:"block",marginBottom:5,fontWeight:600}}>Operator Name <span style={{color:"var(--red)"}}>*</span></label>
                   <input key={`err-${errKey}`} ref={opRef} value={opName} onChange={e=>{setOpName(e.target.value);setOpErr(false);}}
                     placeholder="Your name" className={`input${opErr?" input--error":""}`}/>
                   {opErr&&<div style={{color:"var(--red)",fontSize:11,marginTop:4,fontWeight:600}}>⚠ Required</div>}
+                </div>
+                <div>
+                  <label style={{fontSize:11,color:"var(--t3)",display:"block",marginBottom:5,fontWeight:600}}>Line <span style={{color:"var(--red)"}}>*</span></label>
+                  <select value={lineSelected} onChange={e=>{setLineSelected(e.target.value);setLineErr(false);}}
+                    className={`input${lineErr?" input--error":""}`}>
+                    <option value="">Select your line…</option>
+                    {CRE_LINES.map(l=><option key={l} value={l}>{l}</option>)}
+                  </select>
+                  {lineErr&&<div style={{color:"var(--red)",fontSize:11,marginTop:4,fontWeight:600}}>⚠ Please select a line</div>}
                 </div>
                 <div>
                   <label style={{fontSize:11,color:"var(--t3)",display:"block",marginBottom:5,fontWeight:600}}>SKU / Product</label>
@@ -943,7 +1188,7 @@ function DetailPanel({issue, elapsed, steps, isClosed, closedInfo, guideUrl, onT
                     <button type="button" className="btn btn--ghost btn--full"
                       style={{border:"1.5px dashed var(--border-mid)",borderRadius:8,padding:"14px",flexDirection:"column",gap:4,height:"auto"}}
                       onClick={()=>videoInputRef.current?.click()}>
-                      <span style={{fontSize:22}}>🎥</span>
+                      <IC n="video" s={22} c="var(--t3)"/>
                       <span style={{fontSize:12,fontWeight:700,color:"var(--t2)"}}>Tap to record / choose video</span>
                       <span style={{fontSize:10,color:"var(--t4)",fontWeight:400}}>Opens camera or file picker</span>
                     </button>
@@ -951,7 +1196,7 @@ function DetailPanel({issue, elapsed, steps, isClosed, closedInfo, guideUrl, onT
                     <div style={{background:"var(--bg-deep)",border:"1px solid var(--border-mid)",borderRadius:8,padding:"10px 12px"}}>
                       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}>
                         <div style={{display:"flex",alignItems:"center",gap:8,minWidth:0}}>
-                          <span style={{fontSize:18,flexShrink:0}}>🎬</span>
+                          <IC n="video" s={18} c="var(--t3)"/>
                           <div style={{minWidth:0}}>
                             <div style={{fontSize:12,fontWeight:700,color:"var(--t1)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{videoFile.name}</div>
                             <div style={{fontSize:10,color:"var(--t4)"}}>{(videoFile.size/1024/1024).toFixed(1)} MB</div>
@@ -981,10 +1226,10 @@ function DetailPanel({issue, elapsed, steps, isClosed, closedInfo, guideUrl, onT
                 )}
                 <div style={{display:"flex",flexDirection:"column",gap:8}}>
                   <button className="btn btn--green btn--full" style={{fontSize:13,padding:"11px"}} disabled={uploading} onClick={()=>handleSubmit("resolved")}>
-                    ✅ {allDone?"Mark as Resolved":"Resolve (incomplete steps)"}
+                    <IC n="check" s={14}/> {allDone?"Mark as Resolved":"Resolve (incomplete steps)"}
                   </button>
                   <button className="btn btn--amber btn--full" style={{fontSize:13,padding:"11px",opacity:uploading?.6:1}} disabled={uploading} onClick={()=>handleSubmit("escalated")}>
-                    {uploading?`⏳ Uploading… ${uploadPct}%`:"🔔 Escalate Issue"}
+                    {uploading?<>Uploading… {uploadPct}%</>:<><IC n="bell" s={14}/> Escalate Issue</>}
                   </button>
                 </div>
               </div>
@@ -994,8 +1239,8 @@ function DetailPanel({issue, elapsed, steps, isClosed, closedInfo, guideUrl, onT
 
         {/* Footer */}
         <div style={{background:"var(--bg-deep)",borderTop:"1px solid var(--border)",padding:"10px 20px",display:"flex",gap:8,flexShrink:0}}>
-          <button className="btn btn--ghost" style={{flex:1,justifyContent:"center"}} onClick={onClose}>
-            ← Close <span style={{fontSize:10,color:"var(--t4)",marginLeft:"auto"}}>ESC</span>
+          <button className="btn btn--ghost" style={{flex:1,justifyContent:"center",fontSize:13,padding:"11px"}} onClick={onClose}>
+            ← Close
           </button>
         </div>
       </div>
@@ -1005,16 +1250,62 @@ function DetailPanel({issue, elapsed, steps, isClosed, closedInfo, guideUrl, onT
 
 // ─── ANALYTICS TAB ────────────────────────────────────────────────────────────
 function AnalyticsTab({records, issues}) {
-  const [from, setFrom] = useState("");
-  const [to, setTo]     = useState("");
-  const [watchUrl, setWatchUrl] = useState("");
+  const [from, setFrom]           = useState("");
+  const [to, setTo]               = useState("");
+  const [selectedLines, setSelectedLines] = useState([]); // empty = All
+  const [watchUrl, setWatchUrl]   = useState("");
+
+  const toggleLine = line => {
+    setSelectedLines(prev =>
+      prev.includes(line) ? prev.filter(l=>l!==line) : [...prev, line]
+    );
+  };
 
   const filtered = useMemo(()=>{
     let r=[...records];
     if(from){ const f=new Date(from).getTime(); r=r.filter(x=>x.timestamp>=f); }
     if(to){ const t=new Date(to).getTime()+86399999; r=r.filter(x=>x.timestamp<=t); }
+    if(selectedLines.length>0){
+      r=r.filter(x=> selectedLines.some(sl=> (x.line||"").includes(sl)||sl==="All Lines"));
+    }
     return r;
-  },[records,from,to]);
+  },[records,from,to,selectedLines]);
+
+  // ── Excel export ──────────────────────────────────────────────────────────
+  const downloadExcel = () => {
+    if(!filtered.length) return;
+    const rows = filtered.map(r=>({
+      "Date":        new Date(r.timestamp).toLocaleDateString(undefined,{year:"numeric",month:"short",day:"numeric"}),
+      "Time":        new Date(r.timestamp).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}),
+      "Line":        r.line||"",
+      "Symptom":     r.symptom||"",
+      "Tag":         r.tag||"",
+      "Category":    r.category||"",
+      "Severity":    (r.severity||"").toUpperCase(),
+      "SKU":         r.sku||"",
+      "Operator":    r.operator||"",
+      "Time to Fix": r.timeToFix||"",
+      "Outcome":     (r.outcome||"").toUpperCase(),
+      "Notes":       r.notes||"",
+      "Video URL":   r.videoUrl||"",
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(rows);
+
+    // Column widths
+    ws["!cols"] = [
+      {wch:14},{wch:8},{wch:10},{wch:44},{wch:14},{wch:12},
+      {wch:10},{wch:8},{wch:18},{wch:12},{wch:12},{wch:30},{wch:40}
+    ];
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Issue Log");
+
+    // Filename includes date range and selected lines
+    const dateStr = from||to ? `_${from||"start"}_to_${to||"end"}` : `_${new Date().toISOString().slice(0,10)}`;
+    const lineStr = selectedLines.length ? `_${selectedLines.join("-")}` : "_AllLines";
+    XLSX.writeFile(wb, `CRE_Issue_Log${lineStr}${dateStr}.xlsx`);
+  };
 
   const total=filtered.length;
   const res=filtered.filter(r=>r.outcome==="resolved").length;
@@ -1047,7 +1338,7 @@ function AnalyticsTab({records, issues}) {
   if(records.length===0){
     return (
       <div style={{textAlign:"center",padding:"60px 20px",color:"var(--t4)"}}>
-        <div style={{fontSize:48,marginBottom:16}}>📊</div>
+        <div style={{marginBottom:16,lineHeight:0}}><IC n="chart" s={48} c="var(--t4)"/></div>
         <div style={{fontSize:18,fontWeight:700,color:"var(--t3)",marginBottom:8}}>No data yet</div>
         <div style={{fontSize:13}}>Resolve or escalate issues to see analytics here</div>
       </div>
@@ -1057,33 +1348,79 @@ function AnalyticsTab({records, issues}) {
   return (
     <div style={{padding:"16px 20px",maxWidth:960,margin:"0 auto"}}>
       {watchUrl&&<VideoSheet url={watchUrl} title="Escalation Video" onClose={()=>setWatchUrl("")}/>}
-      {/* Date filter */}
-      <div style={{background:"#ffffff",border:"1px solid var(--border)",borderRadius:10,padding:"12px 16px",marginBottom:16,display:"flex",gap:12,alignItems:"center",flexWrap:"wrap",boxShadow:"var(--shadow-sm)"}}>
-        <span style={{fontSize:12,color:"var(--t2)",fontWeight:700}}>📅 Date Range</span>
-        <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+      {/* ── Filter + Export bar ── */}
+      <div style={{background:"#fff",border:"1px solid var(--border)",borderRadius:12,padding:"14px 16px",marginBottom:16,boxShadow:"var(--shadow-sm)"}}>
+
+        {/* Row 1: Date range + export */}
+        <div style={{display:"flex",gap:10,alignItems:"flex-end",flexWrap:"wrap",marginBottom:12}}>
           <div>
-            <label style={{fontSize:10,color:"var(--t3)",display:"block",marginBottom:3,fontWeight:600}}>FROM</label>
-            <input type="date" value={from} onChange={e=>setFrom(e.target.value)} className="input" style={{width:160,padding:"7px 10px",fontSize:12}}/>
+            <label style={{fontSize:10,color:"var(--t3)",display:"block",marginBottom:3,fontWeight:600,display:"flex",alignItems:"center",gap:4}}><IC n="calendar" s={10} c="var(--t3)"/> FROM</label>
+            <input type="date" value={from} onChange={e=>setFrom(e.target.value)} className="input" style={{width:155,padding:"7px 10px",fontSize:12}}/>
           </div>
-          <span style={{color:"var(--t4)",fontSize:12,paddingTop:16}}>→</span>
+          <span style={{color:"var(--t4)",fontSize:14,paddingBottom:8}}>→</span>
           <div>
             <label style={{fontSize:10,color:"var(--t3)",display:"block",marginBottom:3,fontWeight:600}}>TO</label>
-            <input type="date" value={to} onChange={e=>setTo(e.target.value)} className="input" style={{width:160,padding:"7px 10px",fontSize:12}}/>
+            <input type="date" value={to} onChange={e=>setTo(e.target.value)} className="input" style={{width:155,padding:"7px 10px",fontSize:12}}/>
+          </div>
+          {(from||to)&&(
+            <button className="btn btn--ghost" style={{fontSize:11,padding:"7px 12px"}}
+              onClick={()=>{setFrom("");setTo("");}}>✕ Clear dates</button>
+          )}
+          <div style={{marginLeft:"auto",display:"flex",gap:8,alignItems:"center"}}>
+            <span style={{fontSize:11,color:"var(--t3)",background:"var(--bg-deep)",border:"1px solid var(--border)",borderRadius:6,padding:"5px 10px",fontWeight:600,whiteSpace:"nowrap"}}>
+              {total} record{total!==1?"s":""}
+            </span>
+            <button className="btn btn--fgf" style={{fontSize:12,padding:"8px 16px",gap:6}}
+              onClick={downloadExcel} disabled={total===0}
+              title="Download filtered records as Excel">
+              ⬇ Export Excel
+            </button>
           </div>
         </div>
-        {(from||to)&&<button className="btn btn--ghost" style={{fontSize:11,padding:"7px 12px",alignSelf:"flex-end"}} onClick={()=>{setFrom("");setTo("");}}>✕ Clear</button>}
-        <span style={{fontSize:11,color:"var(--t3)",marginLeft:"auto",background:"var(--bg-deep)",border:"1px solid var(--border)",borderRadius:6,padding:"4px 10px",fontWeight:600}}>{total} record{total!==1?"s":""}</span>
+
+        {/* Row 2: Line multi-select */}
+        <div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}}>
+          <span style={{fontSize:10,fontWeight:700,color:"var(--t4)",letterSpacing:".06em",marginRight:2}}>LINES</span>
+          <button className={`pill-btn${selectedLines.length===0?" active-def":""}`}
+            onClick={()=>setSelectedLines([])}>
+            All Lines
+          </button>
+          {CRE_LINES.filter(l=>l!=="All Lines").map(line=>{
+            const active=selectedLines.includes(line);
+            const clr=LINE_COLORS[line]||"#64748b";
+            return (
+              <button key={line}
+                onClick={()=>toggleLine(line)}
+                style={{cursor:"pointer",border:`1.5px solid ${active?clr:"var(--border-mid)"}`,borderRadius:20,fontSize:11,fontWeight:600,padding:"5px 13px",
+                  background:active?clr:"#fff",color:active?"#fff":"var(--t3)",transition:"all 150ms ease",whiteSpace:"nowrap"}}>
+                {line}
+                {active&&<span style={{marginLeft:5,opacity:.8}}>✓</span>}
+              </button>
+            );
+          })}
+          {selectedLines.length>0&&(
+            <button className="btn btn--ghost" style={{fontSize:10,padding:"4px 10px",marginLeft:4}}
+              onClick={()=>setSelectedLines([])}>✕ Clear lines</button>
+          )}
+        </div>
+
+        {/* Active filter summary */}
+        {selectedLines.length>0&&(
+          <div style={{marginTop:8,fontSize:11,color:"var(--acc)",fontWeight:600}}>
+            Showing: {selectedLines.join(", ")} · {total} record{total!==1?"s":""}
+          </div>
+        )}
       </div>
 
       {/* KPI row */}
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(140px,1fr))",gap:8,marginBottom:16}}>
         {[
-          {label:"Today",value:today,color:"#f59e0b",icon:"📅"},
-          {label:"This Week",value:week,color:"#3b82f6",icon:"📆"},
-          {label:"Total (filtered)",value:total,color:"#f1f5f9",icon:"📋"},
-          {label:"Resolved",value:res,color:"#22c55e",icon:"✅"},
-          {label:"Escalated",value:esc,color:"#f59e0b",icon:"🔔"},
-          {label:"Resolution Rate",value:`${resPct}%`,color:"#22c55e",icon:"📈"},
+          {label:"Today",value:today,color:"#f59e0b",icon:<IC n="calendar" s={12} c="#f59e0b"/>},
+          {label:"This Week",value:week,color:"#3b82f6",icon:<IC n="calendar" s={12} c="#3b82f6"/>},
+          {label:"Total (filtered)",value:total,color:"#64748b",icon:<IC n="clipboard" s={12} c="#64748b"/>},
+          {label:"Resolved",value:res,color:"#22c55e",icon:<IC n="check" s={12} c="#22c55e"/>},
+          {label:"Escalated",value:esc,color:"#f59e0b",icon:<IC n="bell" s={12} c="#f59e0b"/>},
+          {label:"Resolution Rate",value:`${resPct}%`,color:"#22c55e",icon:<IC n="trending-up" s={12} c="#22c55e"/>},
         ].map(({label,value,color,icon})=>(
           <div key={label} className="kpi" style={{textAlign:"center"}}>
             <div style={{fontSize:10,color:"var(--t3)",marginBottom:3}}>{icon} {label}</div>
@@ -1142,11 +1479,11 @@ function AnalyticsTab({records, issues}) {
               </div>
               <div style={{display:"flex",flexDirection:"column",gap:6}}>
                 <div style={{display:"flex",justifyContent:"space-between"}}>
-                  <span style={{fontSize:13,color:"#22c55e",fontWeight:700}}>✅ Resolved</span>
+                  <span style={{fontSize:13,color:"#22c55e",fontWeight:700,display:"inline-flex",alignItems:"center",gap:4}}><IC n="check" s={13} c="#22c55e"/> Resolved</span>
                   <span style={{fontSize:13,fontWeight:800,color:"#22c55e"}}>{res} <span style={{fontSize:11,color:"var(--t4)"}}>({resPct}%)</span></span>
                 </div>
                 <div style={{display:"flex",justifyContent:"space-between"}}>
-                  <span style={{fontSize:13,color:"#f59e0b",fontWeight:700}}>🔔 Escalated</span>
+                  <span style={{fontSize:13,color:"#f59e0b",fontWeight:700,display:"inline-flex",alignItems:"center",gap:4}}><IC n="bell" s={13} c="#f59e0b"/> Escalated</span>
                   <span style={{fontSize:13,fontWeight:800,color:"#f59e0b"}}>{esc} <span style={{fontSize:11,color:"var(--t4)"}}>({total?Math.round((esc/total)*100):0}%)</span></span>
                 </div>
               </div>
@@ -1203,7 +1540,7 @@ function AnalyticsTab({records, issues}) {
                     <td style={{padding:"8px 10px",color:"var(--t3)",fontFamily:"monospace",whiteSpace:"nowrap"}}>{r.timeToFix}</td>
                     <td style={{padding:"8px 10px"}}>
                       <span style={{background:r.outcome==="resolved"?"rgba(34,197,94,.12)":"rgba(245,158,11,.12)",color:r.outcome==="resolved"?"#22c55e":"#f59e0b",border:`1px solid ${r.outcome==="resolved"?"rgba(34,197,94,.3)":"rgba(245,158,11,.3)"}`,borderRadius:4,fontSize:10,fontWeight:700,padding:"2px 7px"}}>
-                        {r.outcome==="resolved"?"✅ Resolved":"🔔 Escalated"}
+                        {r.outcome==="resolved"?<><IC n="check" s={10} c="#22c55e"/> Resolved</>:<><IC n="bell" s={10} c="#f59e0b"/> Escalated</>}
                       </span>
                     </td>
                     <td style={{padding:"8px 10px"}}>
@@ -1266,12 +1603,12 @@ function AdminPanel({issues, saveIssues, escalationEmail, saveEscalation, curren
     <div style={{padding:"16px 20px",maxWidth:900,margin:"0 auto"}}>
       <div style={{display:"flex",gap:8,marginBottom:12,flexWrap:"wrap",alignItems:"center"}}>
         <button className="btn btn--amber" onClick={startAdd}>+ Add New Issue</button>
-        <button className="btn btn--ghost" onClick={()=>setView("settings")}>⚙ Settings</button>
-        <button className="btn btn--red" style={{marginLeft:"auto"}} onClick={()=>setResetConfirm(true)}>🗑 Reset All Data</button>
+        <button className="btn btn--ghost" onClick={()=>setView("settings")}><IC n="settings" s={13}/> Settings</button>
+        <button className="btn btn--red" style={{marginLeft:"auto"}} onClick={()=>setResetConfirm(true)}><IC n="trash" s={13}/> Reset All Data</button>
         <span style={{fontSize:12,color:"var(--t4)"}}>{issues.length} issues</span>
       </div>
       <div className="search-wrap" style={{marginBottom:14}}>
-        <span className="search-icon" style={{color:"var(--t4)"}}>🔍</span>
+        <span className="search-icon" style={{color:"var(--t4)",lineHeight:0}}><IC n="search" s={14} c="var(--t4)"/></span>
         <input value={adminSearch} onChange={e=>setAdminSearch(e.target.value)}
           placeholder="Search issues by name, tag, category…"
           className="input" style={{paddingLeft:36,paddingRight:adminSearch?32:12}}/>
@@ -1288,7 +1625,7 @@ function AdminPanel({issues, saveIssues, escalationEmail, saveEscalation, curren
                 <div style={{flex:1,minWidth:200}}>
                   <div style={{display:"flex",gap:5,marginBottom:4,flexWrap:"wrap"}}>
                     <SevBadge sev={issue.severity}/><TagBadge tag={issue.tag}/><LineBadge line={issue.line}/>
-                    {hasGuide&&<span style={{background:"#e8f5f3",color:"var(--acc)",border:"1px solid #a0d0c8",borderRadius:4,fontSize:10,fontWeight:700,padding:"2px 7px"}}>🎬 Video set</span>}
+                    {hasGuide&&<span style={{background:"#e8f5f3",color:"var(--acc)",border:"1px solid #a0d0c8",borderRadius:4,fontSize:10,fontWeight:700,padding:"2px 7px",display:"inline-flex",alignItems:"center",gap:3}}><IC n="play" s={10} c="var(--acc)"/> Video set</span>}
                   </div>
                   <div style={{fontSize:13,fontWeight:700,color:"var(--t1)"}}>{issue.symptom}</div>
                   <div style={{fontSize:11,color:"var(--t4)",marginTop:2}}>{issue.steps.length} steps · {issue.category}</div>
@@ -1296,16 +1633,16 @@ function AdminPanel({issues, saveIssues, escalationEmail, saveEscalation, curren
                 <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
                   <button className="btn" style={{padding:"6px 12px",fontSize:12,background:hasGuide?"#e8f5f3":"var(--bg-deep)",border:`1px solid ${hasGuide?"#a0d0c8":"var(--border-mid)"}`,color:hasGuide?"var(--acc)":"var(--t3)"}}
                     onClick={()=>{ if(isEditingVideo){setVideoEdit(null);}else{setVideoEdit(issue.id);setVideoDraft(guides?.[issue.id]||"");} }}>
-                    🎬 {hasGuide?"Edit Video":"Add Video"}
+                    <IC n="video" s={12}/> {hasGuide?"Edit Video":"Add Video"}
                   </button>
                   <button className="btn btn--blue" style={{padding:"6px 12px",fontSize:12}} onClick={()=>startEdit(issue)}>✏ Edit</button>
-                  <button className="btn btn--red" style={{padding:"6px 12px",fontSize:12}} onClick={()=>setConfirm(issue.id)}>🗑 Delete</button>
+                  <button className="btn btn--red" style={{padding:"6px 12px",fontSize:12}} onClick={()=>setConfirm(issue.id)}><IC n="trash" s={12}/> Delete</button>
                 </div>
               </div>
               {/* Inline video URL editor */}
               {isEditingVideo&&(
                 <div style={{borderTop:"1px solid var(--border)",padding:"12px 16px",background:"var(--bg-deep)"}}>
-                  <div style={{fontSize:11,fontWeight:600,color:"var(--t3)",marginBottom:8}}>🎬 Video Guide URL — paste a YouTube link, SharePoint link, or direct .mp4 URL</div>
+                  <div style={{fontSize:11,fontWeight:600,color:"var(--t3)",marginBottom:8,display:"flex",alignItems:"center",gap:5}}><IC n="video" s={11} c="var(--t3)"/> Video Guide URL — paste a YouTube link, SharePoint link, or direct .mp4 URL</div>
                   <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
                     <input value={videoDraft} onChange={e=>setVideoDraft(e.target.value)}
                       placeholder="https://youtube.com/watch?v=… or SharePoint link"
@@ -1332,7 +1669,7 @@ function AdminPanel({issues, saveIssues, escalationEmail, saveEscalation, curren
       {confirm&&(
         <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.55)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:300}}>
           <div className="modal" style={{background:"var(--bg-panel)",border:"1px solid var(--border)",borderRadius:14,padding:24,width:"min(360px,90vw)",textAlign:"center",boxShadow:"var(--shadow-lg)"}}>
-            <div style={{fontSize:32,marginBottom:12}}>🗑</div>
+            <div style={{marginBottom:12,lineHeight:0,display:"flex",justifyContent:"center"}}><IC n="trash" s={32} c="var(--red)"/></div>
             <div style={{fontSize:15,fontWeight:700,color:"var(--t1)",marginBottom:8}}>Delete this issue?</div>
             <div style={{fontSize:12,color:"var(--t3)",marginBottom:20}}>This cannot be undone.</div>
             <div style={{display:"flex",gap:8,justifyContent:"center"}}>
@@ -1345,7 +1682,7 @@ function AdminPanel({issues, saveIssues, escalationEmail, saveEscalation, curren
       {resetConfirm&&(
         <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.55)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:300}}>
           <div className="modal" style={{background:"var(--bg-panel)",border:"1px solid #fecaca",borderRadius:14,padding:24,width:"min(380px,90vw)",textAlign:"center",boxShadow:"var(--shadow-lg)"}}>
-            <div style={{fontSize:36,marginBottom:12}}>🔐</div>
+            <div style={{marginBottom:12,lineHeight:0,display:"flex",justifyContent:"center"}}><IC n="lock" s={36} c="var(--red)"/></div>
             <div style={{fontSize:16,fontWeight:800,color:"var(--red)",marginBottom:8}}>Confirm Reset</div>
             <div style={{fontSize:13,color:"var(--t3)",marginBottom:4,lineHeight:1.6}}>This will permanently delete <strong>all issue logs</strong> from Firebase.</div>
             <div style={{fontSize:12,color:"var(--t4)",marginBottom:16}}>Enter your Admin PIN to confirm.</div>
@@ -1412,7 +1749,7 @@ function IssueForm({initial, onSave, onCancel}) {
           <div>
             <label style={{fontSize:11,color:"var(--t3)",display:"block",marginBottom:5,fontWeight:600}}>Line</label>
             <select value={form.line} onChange={e=>set("line",e.target.value)} className="input">
-              {["All Lines","Line 1","Line 2","Line 3","Line 4","Line 5"].map(l=><option key={l}>{l}</option>)}
+              {CRE_LINES.map(l=><option key={l}>{l}</option>)}
             </select>
           </div>
           <div>
@@ -1512,7 +1849,7 @@ function SettingsForm({escalationEmail, saveEscalation, currentPin, savePin, onB
         <input value={email} onChange={e=>setEmail(e.target.value)} placeholder="escalation@fgfbrands.com"
           className="input" style={{marginBottom:10}}/>
         <button className="btn btn--amber" onClick={handleEmailSave}>
-          {emailSaved?"✅ Saved!":"Save Email"}
+          {emailSaved?<><IC n="check" s={13}/> Saved!</>:"Save Email"}
         </button>
       </div>
       {/* EmailJS auto-send */}
@@ -1532,19 +1869,19 @@ function SettingsForm({escalationEmail, saveEscalation, currentPin, savePin, onB
         <input value={ejsTemplate} onChange={e=>setEjsTemplate(e.target.value)} placeholder="template_xxxxxxx"
           className="input" style={{marginBottom:10}}/>
         <button className="btn btn--amber" onClick={handleEjsSave}>
-          {ejsSaved?"✅ Saved!":"Save EmailJS Config"}
+          {ejsSaved?<><IC n="check" s={13}/> Saved!</>:"Save EmailJS Config"}
         </button>
       </div>
       {/* Change PIN */}
       <div style={{background:"var(--bg-card)",border:"1px solid var(--border)",borderRadius:12,padding:20,boxShadow:"var(--shadow-sm)"}}>
-        <div style={{fontSize:12,fontWeight:800,color:"var(--t2)",marginBottom:12}}>🔐 Change Admin PIN</div>
+        <div style={{fontSize:12,fontWeight:800,color:"var(--t2)",marginBottom:12,display:"flex",alignItems:"center",gap:6}}><IC n="lock" s={13} c="var(--t2)"/> Change Admin PIN</div>
         <input type="password" value={pin} onChange={e=>setPin(e.target.value)} placeholder="New PIN"
           className="input" style={{marginBottom:8}}/>
         <input type="password" value={pin2} onChange={e=>setPin2(e.target.value)} placeholder="Confirm new PIN"
           className="input" style={{marginBottom:pinErr?4:10}}/>
         {pinErr&&<div style={{color:"var(--red)",fontSize:11,marginBottom:8}}>{pinErr}</div>}
         <button className="btn btn--amber" onClick={handlePinSave}>
-          {pinSaved?"✅ PIN Updated!":"Update PIN"}
+          {pinSaved?<><IC n="check" s={13}/> PIN Updated!</>:"Update PIN"}
         </button>
       </div>
     </div>
@@ -1563,7 +1900,7 @@ function PinGate({correctPin, onUnlock}) {
   return (
     <div style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:"60vh",padding:20}}>
       <div className="modal" style={{background:"var(--bg-card)",border:"1px solid var(--border)",borderRadius:16,padding:32,width:"min(360px,90vw)",textAlign:"center"}}>
-        <div style={{fontSize:36,marginBottom:12}}>🔐</div>
+        <div style={{marginBottom:12,lineHeight:0,display:"flex",justifyContent:"center"}}><IC n="lock" s={36} c="var(--t2)"/></div>
         <div style={{fontSize:18,fontWeight:800,marginBottom:4}}>Admin Access</div>
         <div style={{fontSize:12,color:"var(--t3)",marginBottom:24}}>Enter PIN to continue</div>
         <input key={`pin-${errKey}`} ref={ref} type="password" value={val} onChange={e=>setVal(e.target.value)}
@@ -1634,87 +1971,188 @@ function App() {
     setCheckedSteps(prev=>{ const n=new Set(prev); n.has(i)?n.delete(i):n.add(i); return n; });
   };
 
-  const handleSubmit = ({outcome,operator,sku,notes,videoUrl,timeToFix}) => {
+  const handleSubmit = ({outcome,operator,line,sku,notes,videoUrl,timeToFix}) => {
     const rec={id:uid(),issueId:selectedIssue.id,symptom:selectedIssue.symptom,tag:selectedIssue.tag,
-      line:selectedIssue.line,severity:selectedIssue.severity,category:selectedIssue.category,
+      line:line||selectedIssue.line,severity:selectedIssue.severity,category:selectedIssue.category,
       operator,sku,notes,videoUrl:videoUrl||"",timeToFix,outcome,timestamp:Date.now()};
     addRecord(rec);
     setIsClosed(true); setClosedInfo({outcome,operator,sku,timeToFix});
     setToast({outcome,symptom:selectedIssue.symptom});
   };
 
+  const NAV_ITEMS = [
+    {id:"home",      label:"Issues",    icon:<IC n="grid"     s={16}/>},
+    {id:"analytics", label:"Analytics", icon:<IC n="chart"    s={16}/>},
+    {id:"admin",     label:"Admin",     icon:<IC n="settings" s={16}/>},
+  ];
+
   return (
     <>
       <style dangerouslySetInnerHTML={{__html:CSS}}/>
 
-      {/* HEADER */}
-      <header className="app-header">
-        <div style={{maxWidth:1200,margin:"0 auto",padding:"10px 16px",display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
-          {/* FGF Logo area */}
-          <div style={{display:"flex",alignItems:"center",gap:12}}>
-            {/* FGF logo — matches Intranet Portal */}
-            <div style={{display:"flex",alignItems:"center",gap:10,flexShrink:0}}>
-              <div style={{background:"var(--fgf-green)",borderRadius:6,padding:"6px 10px",boxShadow:"0 2px 8px rgba(58,171,94,.35)"}}>
-                <span style={{fontFamily:"'Inter',sans-serif",fontWeight:900,fontSize:16,color:"#fff",letterSpacing:".08em",lineHeight:1}}>FGF</span>
+      {/* ═══════════════ MOBILE TOP HEADER (≤700px) ═══════════════ */}
+      <div className="mobile-header">
+        <div className="mobile-header-bar">
+          <div style={{display:"flex",alignItems:"center",gap:9}}>
+            <div style={{background:"linear-gradient(135deg,#3aab5e,#1a6b35)",borderRadius:7,width:30,height:30,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,boxShadow:"0 2px 10px rgba(58,171,94,.4)"}}>
+              <span style={{fontWeight:900,fontSize:11,color:"#fff",letterSpacing:".1em"}}>FGF</span>
+            </div>
+            <div>
+              <div style={{fontSize:13,fontWeight:800,color:"#fff",letterSpacing:"-.01em",lineHeight:1.2}}>CRE Troubleshoot</div>
+              <div style={{fontSize:9,color:"rgba(255,255,255,.4)",fontWeight:500}}>{PLANT_NAME}</div>
+            </div>
+          </div>
+          <div style={{background:"rgba(58,171,94,.15)",border:"1px solid rgba(58,171,94,.3)",borderRadius:6,padding:"4px 10px",fontSize:11,fontWeight:700,color:"#3aab5e"}}>
+            {issues.length} issues
+          </div>
+        </div>
+        <div className="mobile-tab-row">
+          {NAV_ITEMS.map(({id,label,icon})=>(
+            <button key={id} className={`mobile-tab-btn${tab===id?" active":""}`}
+              onClick={()=>setTab(id)}>
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="app-layout">
+
+        {/* ═══════════════════ SIDEBAR ═══════════════════ */}
+        <aside className="sidebar">
+          {/* Logo block */}
+          <div className="sidebar-logo">
+            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
+              <div style={{background:"linear-gradient(135deg,#3aab5e,#1a6b35)",borderRadius:8,width:36,height:36,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,boxShadow:"0 3px 12px rgba(58,171,94,.35)"}}>
+                <span style={{fontWeight:900,fontSize:13,color:"#fff",letterSpacing:".1em"}}>FGF</span>
               </div>
-              <div style={{display:"flex",flexDirection:"column"}}>
-                <span style={{fontSize:13,fontWeight:800,color:"var(--t1)",lineHeight:1.2,letterSpacing:".01em"}}>CRE Troubleshoot Matrix</span>
-                <span style={{fontSize:10,color:"var(--t4)",fontWeight:400,marginTop:1}}>{PLANT_NAME} · v{APP_VER}</span>
+              <div>
+                <div style={{fontSize:12,fontWeight:800,color:"#fff",lineHeight:1.3,letterSpacing:"-.01em"}}>CRE Troubleshoot</div>
+                <div style={{fontSize:10,fontWeight:500,color:"rgba(255,255,255,.4)",letterSpacing:".01em"}}>Matrix v{APP_VER}</div>
               </div>
+            </div>
+            {/* Active issues count badge */}
+            <div style={{background:"rgba(58,171,94,.15)",border:"1px solid rgba(58,171,94,.25)",borderRadius:6,padding:"5px 10px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <span style={{fontSize:10,color:"rgba(255,255,255,.5)",fontWeight:500}}>Active Issues</span>
+              <span style={{fontSize:13,fontWeight:800,color:"#3aab5e"}}>{issues.length}</span>
             </div>
           </div>
 
           {/* Nav */}
-          <nav style={{display:"flex",gap:4,marginLeft:"auto"}}>
-            {[["home","🏠 Issues"],["analytics","📊 Analytics"],["admin","⚙ Admin"]].map(([id,label])=>(
-              <button key={id} className={`nav-tab${tab===id?" active":""}`}
-                onClick={()=>{ setTab(id); if(id==="admin"&&!adminUnlocked){}; }}>
-                {label}
+          <nav className="sidebar-nav">
+            <span className="sidebar-section-label">Menu</span>
+            {NAV_ITEMS.map(({id,label,icon})=>(
+              <button key={id} className={`nav-item${tab===id?" active":""}`}
+                onClick={()=>setTab(id)}>
+                <span className="nav-icon">{icon}</span>
+                <span style={{flex:1}}>{label}</span>
+                {tab===id&&<span style={{width:6,height:6,borderRadius:"50%",background:"#3aab5e",flexShrink:0}}/>}
               </button>
             ))}
           </nav>
-        </div>
-      </header>
 
-      {/* CONTENT */}
-      <main style={{minHeight:"calc(100vh - 56px)"}}>
+          {/* Footer */}
+          <div className="sidebar-footer">
+            <div style={{display:"flex",alignItems:"center",gap:8}}>
+              <div style={{width:8,height:8,borderRadius:"50%",background:"#3aab5e",boxShadow:"0 0 6px rgba(58,171,94,.8)",flexShrink:0}}/>
+              <div>
+                <div style={{fontSize:11,fontWeight:700,color:"rgba(255,255,255,.7)"}}>{PLANT_NAME}</div>
+                <div style={{fontSize:9,color:"rgba(255,255,255,.3)",marginTop:1}}>Production · Live</div>
+              </div>
+            </div>
+          </div>
+        </aside>
+
+        {/* ═══════════════════ MAIN CONTENT ═══════════════════ */}
+        <div className="main-wrap">
+          <main style={{flex:1}}>
 
         {/* ── HOME TAB ── */}
         {tab==="home"&&(
           <div style={{maxWidth:1200,margin:"0 auto",padding:"14px 16px"}}>
-            {/* Search + filters */}
-            <div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap",alignItems:"center"}}>
-              <div className="search-wrap" style={{flex:"1 1 200px",minWidth:180}}>
-                <span className="search-icon">🔍</span>
-                <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search issues…"
-                  className="input" style={{paddingLeft:36,paddingRight:search?32:12}}/>
-                {search&&<button className="search-clear" onClick={()=>setSearch("")}>×</button>}
+
+            {/* ── Stats bar ── */}
+            <div className="stats-bar-wrap" style={{display:"flex",gap:8,marginBottom:14,alignItems:"stretch"}}>
+              {[
+                {label:"Critical", sev:"critical", color:"#e53e3e", bg:"rgba(229,62,62,.06)",  bdr:"rgba(229,62,62,.18)"},
+                {label:"Warning",  sev:"warning",  color:"#d97706", bg:"rgba(217,119,6,.06)",  bdr:"rgba(217,119,6,.18)"},
+                {label:"Advisory", sev:"advisory", color:"#3b82f6", bg:"rgba(59,130,246,.06)", bdr:"rgba(59,130,246,.18)"},
+              ].map(({label,sev,color,bg,bdr})=>{
+                const cnt=issues.filter(i=>i.severity===sev).length;
+                const isActive=filterSev===sev;
+                return (
+                  <div key={sev} className="stat-chip"
+                    style={{background:isActive?color:bg,border:`1px solid ${isActive?color:bdr}`,cursor:"pointer",flexDirection:"column",gap:2,padding:"10px 16px",alignItems:"flex-start",flexShrink:0,boxShadow:isActive?`0 4px 14px ${color}30`:undefined}}
+                    onClick={()=>setFilterSev(filterSev===sev?"All":sev)}>
+                    <div style={{display:"flex",alignItems:"center",gap:5}}>
+                      <span style={{width:7,height:7,borderRadius:"50%",background:isActive?"rgba(255,255,255,.8)":color,display:"inline-block",flexShrink:0}}/>
+                      <span style={{fontSize:10,fontWeight:600,color:isActive?"rgba(255,255,255,.8)":color,letterSpacing:".04em",textTransform:"uppercase"}}>{label}</span>
+                    </div>
+                    <span style={{fontSize:22,fontWeight:800,color:isActive?"#fff":color,lineHeight:1,letterSpacing:"-.02em"}}>{cnt}</span>
+                  </div>
+                );
+              })}
+              <div className="stat-chip-total" style={{marginLeft:"auto",alignSelf:"stretch",background:"#fff",border:"1px solid var(--border)",borderRadius:10,padding:"10px 16px",display:"flex",flexDirection:"column",justifyContent:"center",boxShadow:"var(--shadow-xs)"}}>
+                <div style={{fontSize:10,color:"var(--t4)",fontWeight:600,letterSpacing:".04em",textTransform:"uppercase"}}>Showing</div>
+                <div style={{fontSize:20,fontWeight:800,color:"var(--t2)",lineHeight:1.2,marginTop:2}}>{filtered.length}<span style={{fontSize:13,fontWeight:500,color:"var(--t4)",marginLeft:3}}>/ {issues.length}</span></div>
               </div>
-              <select value={filterLine} onChange={e=>setFilterLine(e.target.value)} className="input" style={{width:"auto",padding:"9px 12px",fontSize:12}}>
-                {lines.map(l=><option key={l}>{l}</option>)}
-              </select>
-              <select value={filterSev} onChange={e=>setFilterSev(e.target.value)} className="input" style={{width:"auto",padding:"9px 12px",fontSize:12}}>
-                <option value="All">All Severity</option>
-                <option value="critical">Critical</option>
-                <option value="warning">Warning</option>
-                <option value="advisory">Advisory</option>
-              </select>
-              <select value={filterCat} onChange={e=>setFilterCat(e.target.value)} className="input" style={{width:"auto",padding:"9px 12px",fontSize:12}}>
-                <option value="All">All Categories</option>
-                <option value="equipment">Equipment</option>
-                <option value="quality">Quality</option>
-                <option value="safety">Safety</option>
-              </select>
-              <span style={{fontSize:11,color:"var(--t4)"}}>{filtered.length} / {issues.length}</span>
+            </div>
+
+            {/* ── Filter card ── */}
+            <div className="filter-card" style={{marginBottom:14}}>
+              {/* Row 1: Search + Line */}
+              <div className="filter-row1" style={{display:"flex",gap:8,marginBottom:10}}>
+                <div className="search-wrap" style={{flex:1}}>
+                  <span className="search-icon" style={{lineHeight:0}}><IC n="search" s={14} c="var(--t4)"/></span>
+                  <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search issues by symptom, tag, keyword…"
+                    className="input" style={{paddingLeft:36,paddingRight:search?32:12}}/>
+                  {search&&<button className="search-clear" onClick={()=>setSearch("")}>×</button>}
+                </div>
+                <select value={filterLine} onChange={e=>setFilterLine(e.target.value)} className="input" style={{width:"auto",padding:"9px 14px",fontSize:12,minWidth:100}}>
+                  <option value="All">All Lines</option>
+                  {CRE_LINES.map(l=><option key={l} value={l}>{l}</option>)}
+                </select>
+              </div>
+              {/* Row 2: Severity + Category pills — horizontally scrollable on mobile */}
+              <div className="filter-pill-row" style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}>
+                <span style={{fontSize:10,fontWeight:700,color:"var(--t4)",letterSpacing:".06em",flexShrink:0}}>SEV</span>
+                {[
+                  {v:"All",      cls:"active-def",  dot:null,       text:"All"},
+                  {v:"critical", cls:"active-crit", dot:"#ef4444",  text:"Critical"},
+                  {v:"warning",  cls:"active-warn", dot:"#f59e0b",  text:"Warning"},
+                  {v:"advisory", cls:"active-adv",  dot:"#3b82f6",  text:"Advisory"},
+                ].map(({v,dot,text,cls})=>(
+                  <button key={v} className={`pill-btn${filterSev===v?" "+cls:""}`}
+                    style={{flexShrink:0,display:"inline-flex",alignItems:"center",gap:5}}
+                    onClick={()=>setFilterSev(v)}>
+                    {dot&&<span style={{width:7,height:7,borderRadius:"50%",background:dot,display:"inline-block",flexShrink:0}}/>}
+                    {text}
+                  </button>
+                ))}
+                <div style={{width:1,height:18,background:"var(--border-mid)",margin:"0 2px",flexShrink:0}}/>
+                <span style={{fontSize:10,fontWeight:700,color:"var(--t4)",letterSpacing:".06em",flexShrink:0}}>CAT</span>
+                {[
+                  {v:"All",       icon:null,                         text:"All"},
+                  {v:"equipment", icon:<IC n="settings" s={11}/>,    text:"Equipment"},
+                  {v:"quality",   icon:<IC n="package" s={11}/>,     text:"Quality"},
+                  {v:"safety",    icon:<IC n="shield-alert" s={11}/>, text:"Safety"},
+                ].map(({v,icon,text})=>(
+                  <button key={v} className={`pill-btn${filterCat===v?" active-grn":""}`}
+                    style={{flexShrink:0,display:"inline-flex",alignItems:"center",gap:5}}
+                    onClick={()=>setFilterCat(v)}>{icon}{text}</button>
+                ))}
+              </div>
             </div>
             {!issuesLoaded?(
-              <div style={{textAlign:"center",padding:"60px 20px",color:"var(--t4)"}}>
-                <div style={{fontSize:13,color:"var(--t4)"}}>Loading issues…</div>
+              <div style={{textAlign:"center",padding:"80px 20px"}}>
+                <div style={{width:40,height:40,borderRadius:"50%",border:"3px solid var(--border)",borderTopColor:"var(--acc)",margin:"0 auto 16px",animation:"spin 0.8s linear infinite"}}/>
+                <div style={{fontSize:13,color:"var(--t4)",fontWeight:500}}>Loading issues…</div>
               </div>
             ):filtered.length===0?(
-              <div style={{textAlign:"center",padding:"60px 20px",color:"var(--t4)"}}>
-                <div style={{fontSize:40,marginBottom:12}}>🔍</div>
-                <div style={{fontSize:16,fontWeight:600,color:"var(--t3)"}}>No issues match your search</div>
+              <div style={{textAlign:"center",padding:"80px 20px"}}>
+                <div style={{width:60,height:60,borderRadius:16,background:"var(--bg-deep)",border:"1px solid var(--border)",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 16px"}}><IC n="search-x" s={28} c="var(--t4)"/></div>
+                <div style={{fontSize:16,fontWeight:700,color:"var(--t2)",marginBottom:6}}>No issues match</div>
+                <div style={{fontSize:13,color:"var(--t4)"}}>Try adjusting your filters or search term</div>
               </div>
             ):(
               <div className="card-grid">
@@ -1741,7 +2179,19 @@ function App() {
                 guides={guides} saveGuide={saveGuide} removeGuide={removeGuide}/>
             : <PinGate correctPin={adminPin} onUnlock={()=>setAdminUnlocked(true)}/>
         )}
-      </main>
+          </main>
+        </div>{/* end main-wrap */}
+      </div>{/* end app-layout */}
+
+      {/* ═══════════════════ MOBILE BOTTOM NAV ═══════════════════ */}
+      <nav className="mobile-nav">
+        {NAV_ITEMS.map(({id,label,icon})=>(
+          <button key={id} className="mobile-nav-btn" onClick={()=>setTab(id)}>
+            <span className="mnav-icon" style={{color:tab===id?"#3aab5e":"rgba(255,255,255,.45)"}}>{icon}</span>
+            <span className="mnav-label" style={{color:tab===id?"#3aab5e":"rgba(255,255,255,.60)"}}>{label}</span>
+          </button>
+        ))}
+      </nav>
 
       {/* ── DETAIL PANEL ── */}
       {selectedIssue&&(
