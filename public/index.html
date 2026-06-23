@@ -976,10 +976,10 @@ const IssueCard = memo(({issue, logCount, hasGuide, onClick}) => (
 // ─── DETAIL PANEL ─────────────────────────────────────────────────────────────
 function DetailPanel({issue, elapsed, steps, isClosed, closedInfo, guideUrl, onToggleStep, onSubmit, onClose, onSaveGuide, onRemoveGuide, escalationEmail, adminUnlocked}) {
   const opRef=useRef(null); const signOffRef=useRef(null);
-  const [opName,setOpName]=useState(""); const [lineSelected,setLineSelected]=useState(""); const [sku,setSku]=useState("");
+  const [opName,setOpName]=useState(""); const [lineSelected,setLineSelected]=useState(""); const [shift,setShift]=useState(""); const [sku,setSku]=useState("");
   const [notes,setNotes]=useState(""); const [videoFile,setVideoFile]=useState(null);
   const [uploading,setUploading]=useState(false); const [uploadPct,setUploadPct]=useState(0);
-  const [opErr,setOpErr]=useState(false); const [lineErr,setLineErr]=useState(false); const [errKey,setErrKey]=useState(0);
+  const [opErr,setOpErr]=useState(false); const [lineErr,setLineErr]=useState(false); const [shiftErr,setShiftErr]=useState(false); const [errKey,setErrKey]=useState(0);
   const videoInputRef=useRef(null);
 
   const totalSteps=issue.steps.length; const doneCount=steps.size;
@@ -987,11 +987,12 @@ function DetailPanel({issue, elapsed, steps, isClosed, closedInfo, guideUrl, onT
 
   useEscClose(onClose);
   useEffect(()=>{ if(allDone&&!isClosed&&signOffRef.current){ signOffRef.current.scrollIntoView({behavior:"smooth",block:"nearest"}); setTimeout(()=>opRef.current?.focus(),350); } },[allDone]);
-  useEffect(()=>{ setOpName(""); setLineSelected(""); setSku(""); setNotes(""); setVideoFile(null); setUploadPct(0); setOpErr(false); setLineErr(false); },[issue.id]);
+  useEffect(()=>{ setOpName(""); setLineSelected(""); setShift(""); setSku(""); setNotes(""); setVideoFile(null); setUploadPct(0); setOpErr(false); setLineErr(false); setShiftErr(false); },[issue.id]);
 
   const handleSubmit = outcome => {
     if(!opName.trim()){ setOpErr(true); setErrKey(k=>k+1); opRef.current?.focus(); return; }
     if(!lineSelected){ setLineErr(true); return; }
+    if(!shift){ setShiftErr(true); return; }
     const skuVal=sku.trim()?sku.trim().toUpperCase():"N/A";
     const elapsed_snap=elapsed; // capture current elapsed
     if(outcome==="escalated"&&videoFile){
@@ -1001,11 +1002,11 @@ function DetailPanel({issue, elapsed, steps, isClosed, closedInfo, guideUrl, onT
       const task=ref.put(videoFile);
       task.on("state_changed",snap=>{ setUploadPct(Math.round(snap.bytesTransferred/snap.totalBytes*100)); },
         ()=>{ setUploading(false); alert("Upload failed. Check your Firebase Storage rules."); },
-        ()=>{ ref.getDownloadURL().then(url=>{ setUploading(false); onSubmit({outcome,operator:opName.trim(),line:lineSelected,sku:skuVal,notes:notes.trim(),videoUrl:url,timeToFix:fmtT(elapsed_snap)}); }); }
+        ()=>{ ref.getDownloadURL().then(url=>{ setUploading(false); onSubmit({outcome,operator:opName.trim(),line:lineSelected,shift,sku:skuVal,notes:notes.trim(),videoUrl:url,timeToFix:fmtT(elapsed_snap)}); }); }
       );
       return;
     }
-    onSubmit({outcome, operator:opName.trim(), line:lineSelected, sku:skuVal, notes:notes.trim(), videoUrl:"", timeToFix:fmtT(elapsed_snap)});
+    onSubmit({outcome, operator:opName.trim(), line:lineSelected, shift, sku:skuVal, notes:notes.trim(), videoUrl:"", timeToFix:fmtT(elapsed_snap)});
     if(outcome==="escalated"&&escalationEmail&&escalationEmail.trim()){
       const ejsKey=store.get(EJS_KEY_KEY);
       const ejsService=store.get(EJS_SERVICE_KEY);
@@ -1173,6 +1174,16 @@ function DetailPanel({issue, elapsed, steps, isClosed, closedInfo, guideUrl, onT
                   {lineErr&&<div style={{color:"var(--red)",fontSize:11,marginTop:4,fontWeight:600}}>⚠ Please select a line</div>}
                 </div>
                 <div>
+                  <label style={{fontSize:11,color:"var(--t3)",display:"block",marginBottom:5,fontWeight:600}}>Shift <span style={{color:"var(--red)"}}>*</span></label>
+                  <select value={shift} onChange={e=>{setShift(e.target.value);setShiftErr(false);}}
+                    className={`input${shiftErr?" input--error":""}`}>
+                    <option value="">Select shift…</option>
+                    <option value="Day">Day</option>
+                    <option value="Night">Night</option>
+                  </select>
+                  {shiftErr&&<div style={{color:"var(--red)",fontSize:11,marginTop:4,fontWeight:600}}>⚠ Please select a shift</div>}
+                </div>
+                <div>
                   <label style={{fontSize:11,color:"var(--t3)",display:"block",marginBottom:5,fontWeight:600}}>SKU / Product</label>
                   <input value={sku} onChange={e=>setSku(e.target.value)} placeholder="e.g. 82" className="input"/>
                 </div>
@@ -1278,6 +1289,7 @@ function AnalyticsTab({records, issues}) {
       "Date":        new Date(r.timestamp).toLocaleDateString(undefined,{year:"numeric",month:"short",day:"numeric"}),
       "Time":        new Date(r.timestamp).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}),
       "Line":        r.line||"",
+      "Shift":       r.shift||"",
       "Symptom":     r.symptom||"",
       "Tag":         r.tag||"",
       "Category":    r.category||"",
@@ -1294,7 +1306,7 @@ function AnalyticsTab({records, issues}) {
 
     // Column widths
     ws["!cols"] = [
-      {wch:14},{wch:8},{wch:10},{wch:44},{wch:14},{wch:12},
+      {wch:14},{wch:8},{wch:10},{wch:8},{wch:44},{wch:14},{wch:12},
       {wch:10},{wch:8},{wch:18},{wch:12},{wch:12},{wch:30},{wch:40}
     ];
 
@@ -1334,6 +1346,85 @@ function AnalyticsTab({records, issues}) {
   const maxTag=tagCounts[0]?.[1]||1;
   const maxIss=issueCounts[0]?.count||1;
   const maxLine=lineCounts[0]?.[1]||1;
+
+  // ── Live insights engine ─────────────────────────────────────────────────
+  const insights = useMemo(()=>{
+    if(!filtered.length) return [];
+    const out=[];
+    const escPct = total ? Math.round((esc/total)*100) : 0;
+
+    // 1. Top recurring issue
+    if(issueCounts.length>0){
+      const top=issueCounts[0];
+      const pct=Math.round((top.count/total)*100);
+      out.push({
+        kind: top.count>=5?"alert": top.count>=3?"warning":"info",
+        icon:"trending-up",
+        text:`Top recurring issue: "${top.issue.symptom}" logged ${top.count}× (${pct}% of incidents in this period).`
+      });
+    }
+
+    // 2. Resolution / escalation rate
+    if(escPct>=30){
+      out.push({
+        kind:"alert", icon:"bell",
+        text:`High escalation rate: ${escPct}% of issues (${esc} of ${total}) were escalated. Investigate root causes to reduce repeat failures.`
+      });
+    } else if(total>=3 && resPct===100){
+      out.push({
+        kind:"positive", icon:"check",
+        text:`All ${total} issues in this period were resolved on the floor without escalation.`
+      });
+    } else if(total>0){
+      out.push({
+        kind: resPct>=80?"positive":"info", icon:"check",
+        text:`Resolution rate: ${resPct}% resolved, ${escPct}% escalated across ${total} records.`
+      });
+    }
+
+    // 3. Busiest line + top issue type on that line
+    if(lineCounts.length>0 && selectedLines.length===0){
+      const [busyLine,busyCount]=lineCounts[0];
+      const pct=Math.round((busyCount/total)*100);
+      const lineRecs=filtered.filter(r=>(r.line||"Unknown")===busyLine);
+      const tagM={}; lineRecs.forEach(r=>{tagM[r.tag]=(tagM[r.tag]||0)+1;});
+      const topTag=Object.entries(tagM).sort((a,b)=>b[1]-a[1])[0];
+      out.push({
+        kind: pct>=50?"warning":"info", icon:"alert",
+        text:`Most active line: ${busyLine} with ${busyCount} issues (${pct}% of total)${topTag?` — most common fault: ${topTag[0]} (${topTag[1]}×)`:"."}`
+      });
+    }
+
+    // 4. Single line selected — show its tag breakdown
+    if(selectedLines.length===1){
+      const lineRecs=filtered;
+      const tagM={}; lineRecs.forEach(r=>{tagM[r.tag]=(tagM[r.tag]||0)+1;});
+      const topTags=Object.entries(tagM).sort((a,b)=>b[1]-a[1]).slice(0,3);
+      if(topTags.length>0){
+        const tagsStr=topTags.map(([t,n])=>`${t} (${n}×)`).join(", ");
+        out.push({
+          kind:"info", icon:"settings",
+          text:`${selectedLines[0]} fault breakdown: ${tagsStr}.`
+        });
+      }
+    }
+
+    // 5. Day-of-week pattern (need ≥5 records to be meaningful)
+    if(filtered.length>=5){
+      const dayNames=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+      const dayM={0:0,1:0,2:0,3:0,4:0,5:0,6:0};
+      filtered.forEach(r=>{ dayM[new Date(r.timestamp).getDay()]++; });
+      const [busyDay,busyDayCount]=Object.entries(dayM).sort((a,b)=>b[1]-a[1])[0];
+      if(busyDayCount>=2){
+        out.push({
+          kind:"info", icon:"calendar",
+          text:`Time pattern: Most issues occur on ${dayNames[busyDay]}s (${busyDayCount} incidents). Consider extra coverage or pre-shift checks on ${dayNames[busyDay]}s.`
+        });
+      }
+    }
+
+    return out;
+  },[filtered,total,res,esc,resPct,issueCounts,lineCounts,selectedLines]);
 
   if(records.length===0){
     return (
@@ -1411,6 +1502,37 @@ function AnalyticsTab({records, issues}) {
           </div>
         )}
       </div>
+
+      {/* ── Insights panel ── */}
+      {insights.length>0&&(
+        <div style={{background:"var(--bg-card)",border:"1px solid var(--border)",borderRadius:12,padding:"14px 16px",marginBottom:16,boxShadow:"var(--shadow-sm)"}}>
+          <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:10}}>
+            <IC n="trending-up" s={13} c="var(--acc)"/>
+            <span style={{fontSize:11,fontWeight:800,color:"var(--t3)",letterSpacing:".07em"}}>INSIGHTS</span>
+            <span style={{fontSize:10,color:"var(--t4)",marginLeft:2}}>
+              {selectedLines.length>0||from||to
+                ? `based on ${selectedLines.length>0?selectedLines.join(", "):"all lines"}${from||to?` · ${from||"start"} → ${to||"today"}`:""}`
+                : "based on all data"}
+            </span>
+          </div>
+          <div style={{display:"flex",flexDirection:"column",gap:7}}>
+            {insights.map((ins,i)=>{
+              const cfg={
+                alert:  {bg:"rgba(239,68,68,.07)",border:"rgba(239,68,68,.22)",ic:"#ef4444",dot:"#ef4444"},
+                warning:{bg:"rgba(245,158,11,.07)",border:"rgba(245,158,11,.22)",ic:"#f59e0b",dot:"#f59e0b"},
+                info:   {bg:"rgba(59,130,246,.07)",border:"rgba(59,130,246,.18)",ic:"#3b82f6",dot:"#3b82f6"},
+                positive:{bg:"rgba(34,197,94,.07)",border:"rgba(34,197,94,.22)",ic:"#22c55e",dot:"#22c55e"},
+              }[ins.kind]||{bg:"rgba(59,130,246,.07)",border:"rgba(59,130,246,.18)",ic:"#3b82f6",dot:"#3b82f6"};
+              return (
+                <div key={i} style={{display:"flex",alignItems:"flex-start",gap:10,background:cfg.bg,border:`1px solid ${cfg.border}`,borderRadius:8,padding:"9px 12px"}}>
+                  <div style={{flexShrink:0,marginTop:1}}><IC n={ins.icon} s={14} c={cfg.ic}/></div>
+                  <div style={{fontSize:12.5,color:"var(--t2)",lineHeight:1.5}}>{ins.text}</div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* KPI row */}
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(140px,1fr))",gap:8,marginBottom:16}}>
@@ -1522,7 +1644,7 @@ function AnalyticsTab({records, issues}) {
             <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
               <thead>
                 <tr style={{borderBottom:"1px solid var(--border)"}}>
-                  {["Date","Time","Symptom","Tag","Line","SKU","Operator","Time to Fix","Outcome","Video"].map(h=>(
+                  {["Date","Time","Symptom","Tag","Line","Shift","SKU","Operator","Time to Fix","Outcome","Video"].map(h=>(
                     <th key={h} style={{padding:"6px 10px",textAlign:"left",color:"var(--t4)",fontWeight:700,fontSize:10,letterSpacing:".06em",whiteSpace:"nowrap"}}>{h}</th>
                   ))}
                 </tr>
@@ -1535,6 +1657,19 @@ function AnalyticsTab({records, issues}) {
                     <td style={{padding:"8px 10px",color:"var(--t2)",maxWidth:220,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.symptom}</td>
                     <td style={{padding:"8px 10px"}}><TagBadge tag={r.tag}/></td>
                     <td style={{padding:"8px 10px"}}><LineBadge line={r.line||"?"}/></td>
+                    <td style={{padding:"8px 10px"}}>
+                      {r.shift?(
+                        <span style={{
+                          display:"inline-flex",alignItems:"center",gap:3,
+                          background:r.shift==="Day"?"rgba(245,158,11,.10)":"rgba(99,102,241,.10)",
+                          color:r.shift==="Day"?"#d97706":"#6366f1",
+                          border:`1px solid ${r.shift==="Day"?"rgba(245,158,11,.28)":"rgba(99,102,241,.28)"}`,
+                          borderRadius:4,fontSize:10,fontWeight:700,padding:"2px 7px",whiteSpace:"nowrap"
+                        }}>
+                          {r.shift==="Day"?"☀":"🌙"} {r.shift}
+                        </span>
+                      ):<span style={{color:"var(--t5)",fontSize:11}}>—</span>}
+                    </td>
                     <td style={{padding:"8px 10px",color:"var(--pur)",fontFamily:"monospace",fontSize:11}}>{r.sku}</td>
                     <td style={{padding:"8px 10px",color:"var(--t2)",whiteSpace:"nowrap"}}>{r.operator}</td>
                     <td style={{padding:"8px 10px",color:"var(--t3)",fontFamily:"monospace",whiteSpace:"nowrap"}}>{r.timeToFix}</td>
@@ -1971,9 +2106,9 @@ function App() {
     setCheckedSteps(prev=>{ const n=new Set(prev); n.has(i)?n.delete(i):n.add(i); return n; });
   };
 
-  const handleSubmit = ({outcome,operator,line,sku,notes,videoUrl,timeToFix}) => {
+  const handleSubmit = ({outcome,operator,line,shift,sku,notes,videoUrl,timeToFix}) => {
     const rec={id:uid(),issueId:selectedIssue.id,symptom:selectedIssue.symptom,tag:selectedIssue.tag,
-      line:line||selectedIssue.line,severity:selectedIssue.severity,category:selectedIssue.category,
+      line:line||selectedIssue.line,shift:shift||"",severity:selectedIssue.severity,category:selectedIssue.category,
       operator,sku,notes,videoUrl:videoUrl||"",timeToFix,outcome,timestamp:Date.now()};
     addRecord(rec);
     setIsClosed(true); setClosedInfo({outcome,operator,sku,timeToFix});
